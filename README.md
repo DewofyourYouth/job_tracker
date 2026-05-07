@@ -1,5 +1,7 @@
 # Job Tracker
 
+This project was inspired by [career-ops](https://github.com/santifer/career-ops) by [santifer](https://github.com/santifer), which is a great example of a local-first job search assistant. This project is a personal implementation of a similar idea, with a focus on practical LLM integration for profile review and job listing evaluation. The goal is to build a structured workflow around a local candidate profile, CV, and portal configuration, with LLM calls reserved for high-value tasks and a later TUI dashboard for managing the workflow.
+
 A local-first job search assistant for keeping a structured candidate profile,
 reviewing that profile against a CV, and eventually scanning job portals without
 turning every page into an LLM call.
