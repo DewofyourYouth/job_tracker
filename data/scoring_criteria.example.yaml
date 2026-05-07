@@ -1,0 +1,139 @@
+# Scoring criteria for job listing evaluation.
+# This file is derived from your cv.md and profile.yaml by running:
+#
+#   python entrypoint.py generate-criteria
+#
+# The generated file (data/scoring_criteria.yaml) is gitignored.
+# This example shows the schema with placeholder values.
+# Feel free to edit it the generated file based on your own preferences.
+
+meta:
+  generated_at: "YYYY-MM-DDTHH:MM:SS"
+  source_files:
+    - data/cv.md
+    - data/profile.yaml
+
+# ---------------------------------------------------------------------------
+# Weights — relative importance of each scoring criterion.
+# Values are used as-is; they don't need to sum to 1.0.
+# Increase a weight to make that dimension dominate the final ranking.
+# ---------------------------------------------------------------------------
+weights:
+  role_fit: 0.40 # How closely the title matches your target archetypes.
+  seniority: 0.20 # Level alignment (Senior/Staff/Principal vs Junior/Mid).
+  location_remote: 0.15 # Remote compatibility and geography.
+  tech_stack: 0.15 # Keyword overlap with your technical background.
+  avoid_penalty: 0.10 # Penalty for roles that match your avoid list.
+
+# ---------------------------------------------------------------------------
+# Tolerances — thresholds that control the funnel width.
+# ---------------------------------------------------------------------------
+tolerances:
+  min_score_threshold: 0.25 # Listings below this are discarded before LLM.
+  top_n_for_llm: 20 # Max listings forwarded to LLM evaluation.
+  salary_below_min_tolerance_pct: 0.10 # 10% below min salary is still acceptable.
+  location_override_role_fit: 0.80 # A role_fit this high forgives a location mismatch.
+  min_title_keyword_hits: 1 # Positive title keywords required to proceed.
+
+# ---------------------------------------------------------------------------
+# Role fit — what counts as a matching role archetype.
+# The scorer checks these in order: exact_archetypes > strong_keywords > weak_keywords.
+# ---------------------------------------------------------------------------
+role_fit:
+  # Full archetype names from your profile's target_roles section.
+  # Exact or near-exact title match → score 1.0
+  exact_archetypes:
+    - "Senior Example Engineer"
+    - "Senior Platform Engineer"
+    - "Senior Backend Engineer"
+
+  # Individual words/phrases that are strong positive signals.
+  # At least 2 matched → score 0.75; 1 matched → score 0.5
+  strong_keywords:
+    - "Platform Engineer"
+    - "Backend Engineer"
+    - "Infrastructure Engineer"
+    - "Developer Platform"
+    - "Internal Tools"
+
+  # Weaker signals — present in description only or generic titles.
+  # Match → score 0.3
+  weak_keywords:
+    - "Engineer"
+    - "Backend"
+    - "Platform"
+
+# ---------------------------------------------------------------------------
+# Seniority — how title level maps to a score.
+# Unlisted levels default to 0.4 (soft signal).
+# ---------------------------------------------------------------------------
+seniority:
+  target_level: "Senior" # Your target seniority level from profile.yaml.
+  level_scores:
+    Staff: 1.0
+    Principal: 1.0
+    Lead: 1.0
+    Head: 1.0
+    Director: 1.0
+    Senior: 1.0
+    # No qualifier present → 0.4 (use empty string key)
+    "": 0.4
+    Junior: 0.0
+    Intern: 0.0
+    Entry: 0.0
+
+# ---------------------------------------------------------------------------
+# Location — what location/remote configurations are acceptable.
+# Scores are mapped by pattern match against the listing's location field.
+# Patterns are checked in order; first match wins.
+# ---------------------------------------------------------------------------
+location_remote:
+  # Score → list of substrings that imply this score (case-insensitive).
+  patterns:
+    - score: 1.0
+      match: ["remote", "fully remote", "100% remote", "worldwide"]
+    - score: 0.85
+      match: ["remote emea", "remote europe", "emea remote"]
+    - score: 0.70
+      match: ["hybrid"] # Fill in your acceptable hybrid cities in generated file.
+    - score: 0.50
+      match: [] # Ambiguous / not specified (neutral).
+    - score: 0.10
+      match: ["onsite", "in-office", "on-site"]
+  # If no pattern matches at all, use this fallback score.
+  fallback_score: 0.50
+  # Cities/regions where onsite or hybrid is still acceptable (your preferred locations).
+  acceptable_onsite_locations: []
+
+# ---------------------------------------------------------------------------
+# Tech stack — keywords extracted from your CV and profile superpowers.
+# Matched case-insensitively in title + description.
+# ---------------------------------------------------------------------------
+tech_stack:
+  keywords:
+    - "Example Technology"
+    - "Another Framework"
+  # Score given when zero tech keywords appear in the listing.
+  # Use a non-zero value because tech is rarely exhaustively listed in postings.
+  zero_match_floor: 0.20
+
+# ---------------------------------------------------------------------------
+# Avoid — roles/keywords to penalise or hard-disqualify.
+# ---------------------------------------------------------------------------
+avoid:
+  # Title matches any of these AND zero positive role keywords present → disqualify.
+  hard_disqualify:
+    - "Example Ops Role"
+    - "Example Admin Role"
+  # Title or description contains these → soft score penalty (avoid_score = 0.5).
+  soft_penalise:
+    - "Operations"
+    - "Administration"
+
+# ---------------------------------------------------------------------------
+# Compensation — parsed from profile.yaml compensation section.
+# ---------------------------------------------------------------------------
+compensation:
+  minimum: 0 # Minimum acceptable salary (in currency below).
+  target: 0 # Midpoint of target range.
+  currency: "USD"
