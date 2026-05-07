@@ -1,0 +1,90 @@
+# Portal Scanner Configuration
+# Copy this file to config/portals.yml, then tune it for your lane.
+#
+# Current zero-token scanner behavior:
+# - scans enabled tracked_companies with detectable supported ATS APIs
+# - supports Greenhouse, Ashby, and Lever
+# - filters only on title_filter.positive and title_filter.negative
+# - ignores search_queries, seniority_boost, scan_method, and scan_query
+# - detects ATS families from explicit api: or ATS-shaped careers_url values
+#
+# careers_url rule:
+# - prefer the branded company careers URL whenever available
+# - if the branded page hides the ATS slug, also set api: explicitly so the
+#   scanner can still detect the supported ATS family
+# - use an ATS-hosted careers_url only as fallback when no branded page exists
+# - raw ATS URLs can cause false 410 or job-ID mismatch issues later
+#
+# Practical tuning loop:
+# 1. Narrow title_filter.positive to the exact roles you want
+# 2. Block noisy matches in title_filter.negative
+# 3. Keep only your highest-fit tracked_companies enabled
+# 4. Run npm run scan -- --compare-clean
+# 5. Tighten or broaden until the results are usable
+
+title_filter:
+  positive:
+    # Replace these with your real target titles.
+    - "Forward Deployed"
+    - "Solutions Engineer"
+    - "Solutions Architect"
+    - "Customer Engineer"
+    - "Deployment Engineer"
+  negative:
+    # Block obvious noise.
+    - "Intern"
+    - "Junior"
+    - "Manager"
+    - "Director"
+    - "Developer Relations"
+    - "Developer Advocate"
+    - "Sales"
+    - "Customer Success"
+    - "Research"
+    - "Scientist"
+
+# Optional manual discovery notes.
+# The current zero-token scanner does not execute these queries.
+search_queries:
+  - name: Manual notes placeholder
+    query: 'site:jobs.ashbyhq.com "Forward Deployed" OR "Solutions Engineer"'
+    enabled: false
+
+tracked_companies:
+  # Greenhouse examples
+  - name: OpenAI
+    careers_url: https://openai.com/careers/search
+    api: https://boards-api.greenhouse.io/v1/boards/openai/jobs
+    notes: "Branded careers page plus explicit Greenhouse API."
+    enabled: true
+
+  - name: Anthropic
+    careers_url: https://job-boards.greenhouse.io/anthropic
+    notes: "ATS-hosted fallback example. Greenhouse board detected from careers_url."
+    enabled: true
+
+  # Ashby examples
+  - name: Cohere
+    careers_url: https://jobs.ashbyhq.com/cohere
+    notes: "ATS-hosted fallback example. Ashby board detected from careers_url."
+    enabled: true
+
+  - name: WorkOS
+    careers_url: https://jobs.ashbyhq.com/workos
+    notes: "ATS-hosted fallback example. Ashby board detected from careers_url."
+    enabled: true
+
+  # Lever example
+  - name: Example Lever Company
+    careers_url: https://jobs.lever.co/example-company
+    notes: "ATS-hosted fallback example. Lever board detected from careers_url."
+    enabled: false
+
+  # Unsupported example kept disabled on purpose.
+  # scan_method and scan_query are ignored by the current scanner.
+  - name: Example Unsupported Company
+    careers_url: https://example.com/careers
+    scan_method: websearch
+    scan_query: 'site:example.com/careers "Solutions Engineer"'
+    notes: "This will be skipped until the scanner supports broader discovery."
+    enabled: false
