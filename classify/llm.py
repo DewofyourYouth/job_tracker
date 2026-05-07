@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -44,56 +45,88 @@ class LLMEvaluation:
 # Prompt construction
 # ---------------------------------------------------------------------------
 
-def build_evaluation_prompt(scored: ScoredListing, profile: dict) -> str:
+def build_system_prompt() -> str:
+    return (
+        "You are a senior technical recruiter evaluating software engineering job listings.\n"
+        "\n"
+        "SCORING RUBRIC (fit_score 1–10):\n"
+        "  9–10  Exceptional match — candidate should prioritise this.\n"
+        "  7–8   Good match — worth applying.\n"
+        "  5–6   Mixed signals — apply only if pipeline is thin.\n"
+        "  1–4   Poor fit — skip.\n"
+        "\n"
+        "OUTPUT: reply with only valid JSON matching exactly this schema:\n"
+        "{\n"
+        '  "fit_score": <integer 1-10>,\n'
+        '  "fit_summary": "<2-3 sentence overall assessment>",\n'
+        '  "strengths": ["<strength>", ...],\n'
+        '  "red_flags": ["<concern>", ...],\n'
+        '  "recommendation": "<apply|maybe|skip>"\n'
+        "}\n"
+        "\n"
+        "CONSTRAINTS:\n"
+        "- strengths and red_flags: max 3 items each, ≤25 words per item.\n"
+        "- Flag as red flags: visa sponsorship requirements, severe stack mismatch,\n"
+        "  ops/admin-heavy roles, explicit on-site in non-preferred location,\n"
+        "  compensation clearly below candidate minimum.\n"
+        "- Do not repeat the candidate profile back verbatim.\n"
+        "- Output only the JSON object, no surrounding prose."
+    )
+
+
+def build_evaluation_prompt(scored: ScoredListing, criteria: dict) -> str:
     """
     Build the user-turn prompt for a single listing evaluation.
 
-    Includes:
-      - Candidate summary (headline, superpowers, avoid_roles, compensation).
-      - Listing details: title, company, location, description (if available),
-        and the rule-based scores as a structured hint so the model can
-        calibrate rather than re-derive them from scratch.
-
-    Keep it tight — this is the most token-expensive part of the pipeline.
-    The system prompt (built separately) carries the stable instructions;
-    only listing-specific data goes here.
+    Includes a compact YAML-ish block:
+      CANDIDATE: target roles, avoid list, compensation, acceptable locations.
+      LISTING: title, company, location, rule scores, description (first 800 chars).
+      TASK: evaluate fit, return JSON.
     """
-    # TODO:
-    #   Build a compact YAML-ish block:
-    #     CANDIDATE:
-    #       headline: ...
-    #       target_roles: [...]
-    #       avoid: [...]
-    #       compensation_min_ILS: ...
-    #       location: Israel, remote preferred
-    #     LISTING:
-    #       title: ...
-    #       company: ...
-    #       location: ...
-    #       rule_scores: {role_fit: 0.8, seniority: 1.0, ...}
-    #       description: |
-    #         <first 800 chars of description or "not fetched">
-    #     TASK:
-    #       Evaluate fit. Reply in JSON:
-    #         {fit_score, fit_summary, strengths, red_flags, recommendation}
-    raise NotImplementedError
+    listing = scored.listing
+    comp = criteria.get("compensation", {})
+    rf = criteria.get("role_fit", {})
+    avoid = criteria.get("avoid", {})
+    loc_cfg = criteria.get("location_remote", {})
 
+    target_roles = rf.get("exact_archetypes", [])[:6]
+    avoid_roles = avoid.get("hard_disqualify", [])
+    acceptable_locs = loc_cfg.get("acceptable_onsite_locations", [])
+    min_comp = comp.get("minimum", 0)
+    target_comp = comp.get("target", 0)
+    currency = comp.get("currency", "")
 
-def build_system_prompt() -> str:
-    """
-    Stable system prompt sent as the system role message.
+    rule_scores = "  ".join(
+        f"{name}: {c.raw_score:.2f}" for name, c in scored.criteria.items()
+    )
 
-    Includes:
-      - Role: senior technical recruiter who evaluates engineer-job fit.
-      - Output format contract (JSON schema for LLMEvaluation fields).
-      - Scoring rubric for fit_score 1–10.
-      - Instruction to be concise (max 3 bullets per list, ≤25 words each).
-      - Instruction to flag sponsorship requirements, stack mismatches,
-        and ops-only roles as red flags.
-    """
-    # TODO: write the actual system prompt text here.
-    # Structure: role definition → output schema → rubric → constraints.
-    raise NotImplementedError
+    desc = listing.description
+    if desc:
+        desc = desc[:800].strip()
+        if len(listing.description) > 800:
+            desc += "..."
+    else:
+        desc = "not fetched"
+
+    return (
+        f"CANDIDATE:\n"
+        f"  target_roles: {target_roles}\n"
+        f"  avoid: {avoid_roles}\n"
+        f"  acceptable_locations: {acceptable_locs}\n"
+        f"  compensation: min {min_comp} {currency}, target {target_comp} {currency}\n"
+        f"\n"
+        f"LISTING:\n"
+        f"  title: {listing.title}\n"
+        f"  company: {listing.company}\n"
+        f"  location: {listing.location or 'not specified'}\n"
+        f"  salary_hint: {listing.salary_hint or 'not specified'}\n"
+        f"  rule_scores: {rule_scores}\n"
+        f"  total_rule_score: {scored.total_score:.3f}\n"
+        f"  description: |\n"
+        f"    {desc}\n"
+        f"\n"
+        f"TASK: Evaluate fit. Return JSON only."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -108,7 +141,6 @@ def _cache_key(url: str) -> str:
 
 
 def _load_cached(url: str) -> Optional[LLMEvaluation]:
-    """Return a cached LLMEvaluation if one exists for this URL, else None."""
     path = CACHE_DIR / f"{_cache_key(url)}.json"
     if not path.exists():
         return None
@@ -117,10 +149,8 @@ def _load_cached(url: str) -> Optional[LLMEvaluation]:
 
 
 def _save_cached(evaluation: LLMEvaluation) -> None:
-    """Persist an evaluation to disk so future runs skip this URL."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = CACHE_DIR / f"{_cache_key(evaluation.listing_url)}.json"
-    # Exclude 'cached' from the stored payload so loading always sets it fresh.
     data = {k: v for k, v in evaluation.__dict__.items() if k != "cached"}
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
 
@@ -141,36 +171,50 @@ def evaluate_listing(
     Evaluate one listing via the OpenAI API.
 
     Cache check happens before the API call; result is written to cache after.
-
-    Response parsing: request JSON mode (response_format={"type": "json_object"})
-    so the model always returns valid JSON. On parse failure, fall back to a
-    minimal LLMEvaluation with recommendation="maybe" and a red_flag noting
-    the error — we never raise here, callers should always get a result.
-
-    Token budget:
-      - System prompt: ~600 tokens
-      - User prompt:   ~400 tokens per listing
-      - Response:      ~300 tokens
-      Total per call:  ~1000 input + 300 output ≈ cheap on gpt-4o-mini
+    On JSON parse failure, returns a minimal LLMEvaluation with recommendation="maybe"
+    rather than raising — callers always get a result.
     """
     if use_cache:
         cached = _load_cached(scored.listing.url)
         if cached:
             return cached
 
-    # TODO:
-    #   1. Build prompts with build_system_prompt() and build_evaluation_prompt().
-    #   2. Call client.chat.completions.create() with:
-    #        model=model,
-    #        response_format={"type": "json_object"},
-    #        messages=[
-    #            {"role": "system", "content": build_system_prompt()},
-    #            {"role": "user",   "content": build_evaluation_prompt(scored, criteria)},
-    #        ],
-    #        max_tokens=512,
-    #   3. Parse response.choices[0].message.content as JSON.
-    #   4. Construct LLMEvaluation and save to cache.
-    raise NotImplementedError
+    response = client.chat.completions.create(
+        model=model,
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": build_system_prompt()},
+            {"role": "user", "content": build_evaluation_prompt(scored, criteria)},
+        ],
+        max_tokens=512,
+    )
+
+    raw = response.choices[0].message.content or ""
+
+    try:
+        data = json.loads(raw)
+        evaluation = LLMEvaluation(
+            listing_url=scored.listing.url,
+            fit_score=int(data.get("fit_score", 5)),
+            fit_summary=data.get("fit_summary", ""),
+            strengths=data.get("strengths", []),
+            red_flags=data.get("red_flags", []),
+            recommendation=data.get("recommendation", "maybe"),
+            raw_response=raw,
+        )
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        evaluation = LLMEvaluation(
+            listing_url=scored.listing.url,
+            fit_score=5,
+            fit_summary="Response parse error — manual review needed.",
+            strengths=[],
+            red_flags=[f"Parse error: {e}"],
+            recommendation="maybe",
+            raw_response=raw,
+        )
+
+    _save_cached(evaluation)
+    return evaluation
 
 
 # ---------------------------------------------------------------------------
@@ -186,21 +230,33 @@ def batch_evaluate(
     use_cache: bool = True,
 ) -> list[tuple[ScoredListing, LLMEvaluation]]:
     """
-    Evaluate all top listings and return (scored, evaluation) pairs.
-
-    Calls are sequential (not concurrent) to keep rate-limit behaviour
-    predictable. If a single evaluation fails, log a warning and continue —
-    a failed evaluation should not abort the whole batch.
-
-    Progress is reported via tqdm so the user can see API calls happening.
-
-    Returns pairs sorted by evaluation.fit_score descending so callers
-    receive results in display-ready order.
+    Evaluate all top listings and return (scored, evaluation) pairs sorted by
+    fit_score descending. A failed evaluation is captured as a "maybe" rather
+    than aborting the batch.
     """
-    # TODO:
-    #   for scored in tqdm(top_listings, desc="LLM evaluation"):
-    #       try: eval = evaluate_listing(client, scored, criteria, model=model, use_cache=use_cache)
-    #       except Exception as e: log warning, construct minimal eval with red_flags=[str(e)]
-    #       results.append((scored, eval))
-    #   return sorted(results, key=lambda p: p[1].fit_score, reverse=True)
-    raise NotImplementedError
+    try:
+        from tqdm import tqdm
+        iterator = tqdm(top_listings, desc="LLM evaluation")
+    except ImportError:
+        iterator = top_listings  # type: ignore[assignment]
+
+    results: list[tuple[ScoredListing, LLMEvaluation]] = []
+    for scored in iterator:
+        try:
+            evaluation = evaluate_listing(
+                client, scored, criteria, model=model, use_cache=use_cache
+            )
+        except Exception as e:
+            warnings.warn(f"LLM evaluation failed for {scored.listing.url}: {e}")
+            evaluation = LLMEvaluation(
+                listing_url=scored.listing.url,
+                fit_score=5,
+                fit_summary="Evaluation failed — manual review needed.",
+                strengths=[],
+                red_flags=[f"API error: {e}"],
+                recommendation="maybe",
+                raw_response="",
+            )
+        results.append((scored, evaluation))
+
+    return sorted(results, key=lambda p: p[1].fit_score, reverse=True)
