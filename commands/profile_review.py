@@ -16,6 +16,7 @@ except ModuleNotFoundError as exc:
 
 
 DEFAULT_MODEL = "gpt-4.1-mini"
+DEFAULT_REVIEW_FILE = Path(".job_tracker/profile_review.latest.json")
 REQUIRED_PROFILE_KEYS = {
     "candidate",
     "target_roles",
@@ -119,27 +120,65 @@ def apply_profile_review(result, profile_path):
     Path(profile_path).write_text(yaml_text, encoding="utf-8")
 
 
+def save_review_result(result, review_path):
+    """Persist a review result so it can be applied without another LLM call."""
+
+    review_path = Path(review_path)
+    review_path.parent.mkdir(parents=True, exist_ok=True)
+    review_path.write_text(
+        json.dumps(result, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def load_review_result(review_path):
+    """Load a saved review result from disk."""
+
+    review_path = Path(review_path)
+    try:
+        result = json.loads(review_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ProfileReviewError(f"No saved review found at {review_path}.") from exc
+    except json.JSONDecodeError as exc:
+        raise ProfileReviewError(f"Saved review is invalid JSON: {exc}") from exc
+
+    _validate_review_result(result)
+    return result
+
+
+def discard_review_result(review_path):
+    """Delete a saved review result if it exists."""
+
+    review_path = Path(review_path)
+    try:
+        review_path.unlink()
+    except FileNotFoundError:
+        return False
+    return True
+
+
 def render_review(result):
     """Render structured review results for a terminal."""
 
     lines = []
-    summary = result.get("summary")
-    if summary:
-        lines.extend(["Summary", summary, ""])
+    general_comments = result.get("general_comments") or result.get("summary")
+    if general_comments:
+        lines.extend(["General Comments:", str(general_comments), ""])
 
-    recommendations = result.get("recommendations", [])
-    if recommendations:
-        lines.append("Recommendations")
-        for index, item in enumerate(recommendations, start=1):
+    revisions = result.get("revisions") or _recommendations_to_revisions(
+        result.get("recommendations", [])
+    )
+    if revisions:
+        lines.append("Revisions:")
+        for item in revisions:
             section = item.get("section", "profile")
-            issue = item.get("issue", "")
-            rationale = item.get("rationale", "")
-            change = item.get("change", "")
-            lines.append(f"{index}. {section}: {issue}")
-            if rationale:
-                lines.append(f"   Why: {rationale}")
-            if change:
-                lines.append(f"   Change: {change}")
+            current_version = item.get("current_version", "")
+            proposed_change = item.get("proposed_change", "")
+            reasoning = item.get("reasoning", "")
+            lines.append(f"- Section: {section}")
+            lines.append(f"  Current version: {current_version}")
+            lines.append(f"  Proposed change: {proposed_change}")
+            lines.append(f"  Reasoning: {reasoning}")
         lines.append("")
 
     cautions = result.get("cautions", [])
@@ -152,6 +191,20 @@ def render_review(result):
     return "\n".join(lines).strip()
 
 
+def _recommendations_to_revisions(recommendations):
+    revisions = []
+    for item in recommendations:
+        revisions.append(
+            {
+                "section": item.get("section", "profile"),
+                "current_version": item.get("issue", ""),
+                "proposed_change": item.get("change", ""),
+                "reasoning": item.get("rationale", ""),
+            }
+        )
+    return revisions
+
+
 def _build_prompt(cv_text, profile_text, feedback):
     feedback_text = feedback or "No additional user feedback."
     return f"""
@@ -162,13 +215,13 @@ User feedback to honor:
 
 Return JSON with this shape:
 {{
-  "summary": "short overall assessment",
-  "recommendations": [
+  "general_comments": "short overall assessment of whether the profile matches the CV",
+  "revisions": [
     {{
       "section": "target_roles|narrative|preferences|compensation|location|candidate",
-      "issue": "what is wrong or missing",
-      "rationale": "why the CV supports the recommendation",
-      "change": "specific proposed change"
+      "current_version": "quote or summarize the current profile content being changed",
+      "proposed_change": "specific replacement, addition, or deletion",
+      "reasoning": "why this change is supported by the CV or user feedback"
     }}
   ],
   "cautions": ["claims or target roles that are weakly supported"],
@@ -184,6 +237,9 @@ Return JSON with this shape:
 
 The proposed_profile must be a complete replacement for the current profile,
 not a patch. Use YAML-compatible JSON values only.
+Every meaningful difference between the current profile and proposed_profile
+should be represented in revisions so the user can review the changes without
+manually diffing JSON or YAML.
 
 CV markdown:
 ---CV---
@@ -258,7 +314,19 @@ def _openai_error_code(exc):
     "--apply",
     "apply_changes",
     is_flag=True,
-    help="Overwrite the profile YAML with the proposed profile.",
+    help="Apply the saved review result without calling the LLM.",
+)
+@click.option(
+    "--discard",
+    is_flag=True,
+    help="Delete the saved review result without changing the profile.",
+)
+@click.option(
+    "--review-file",
+    default=DEFAULT_REVIEW_FILE,
+    show_default=True,
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Path used to save/load the pending review JSON.",
 )
 @click.option(
     "--json",
@@ -273,27 +341,45 @@ def profile_review_command(
     feedback_file,
     model,
     apply_changes,
+    discard,
+    review_file,
     json_output,
 ):
-    """Compare cv.md to profile.yaml and recommend or apply profile changes."""
+    """Compare cv.md to profile.yaml and recommend profile changes."""
 
     if feedback_file:
         file_feedback = feedback_file.read_text(encoding="utf-8").strip()
         feedback = "\n\n".join(part for part in [feedback, file_feedback] if part)
 
+    removed = False
     try:
-        result = review_profile(
-            cv_path=cv_path,
-            profile_path=profile_path,
-            feedback=feedback,
-            model=model,
-        )
+        if apply_changes and discard:
+            raise ProfileReviewError("Use only one of --apply or --discard.")
 
         if apply_changes:
+            result = load_review_result(review_file)
             apply_profile_review(result, profile_path)
+        elif discard:
+            removed = discard_review_result(review_file)
+            result = None
+        else:
+            result = review_profile(
+                cv_path=cv_path,
+                profile_path=profile_path,
+                feedback=feedback,
+                model=model,
+            )
+            save_review_result(result, review_file)
 
     except (AuthError, ProfileReviewError) as exc:
         raise click.ClickException(str(exc)) from exc
+
+    if discard:
+        if removed:
+            click.echo(f"Deleted saved review at {review_file}.")
+        else:
+            click.echo(f"No saved review found at {review_file}.")
+        return
 
     if json_output:
         click.echo(json.dumps(result, indent=2, ensure_ascii=False))
@@ -303,7 +389,21 @@ def profile_review_command(
     if apply_changes:
         click.echo(f"\nApplied proposed profile to {profile_path}.")
     else:
-        click.echo("\nNo files changed. Re-run with --apply to update the profile.")
+        click.echo(f"\nSaved review to {review_file}.")
+        if click.confirm("Apply these profile changes now?", default=False):
+            try:
+                apply_profile_review(result, profile_path)
+            except ProfileReviewError as exc:
+                raise click.ClickException(str(exc)) from exc
+            discard_review_result(review_file)
+            click.echo(f"Applied proposed profile to {profile_path}.")
+            click.echo(f"Deleted saved review at {review_file}.")
+        else:
+            if click.confirm("Discard the saved review?", default=False):
+                discard_review_result(review_file)
+                click.echo(f"Deleted saved review at {review_file}.")
+            else:
+                click.echo(f"Kept saved review at {review_file}. Run with --apply to update the profile.")
 
 
 if __name__ == "__main__":

@@ -11,47 +11,45 @@ The project is intentionally built around plain files:
 - `data/portals.yaml` - private portal/search configuration.
 - `data/*.example.*` - safe examples that can be committed.
 
-## Status
-
-Currently implemented:
-
-- `profile-review`: compares `data/cv.md` to `data/profile.yaml` and recommends
-  profile changes.
-- Optional `--apply` mode to replace `profile.yaml` with the proposed profile.
-- Environment-only OpenAI API key lookup via `OPENAI_API_KEY`.
-
-Planned:
-
-- Token-efficient job listing scan pipeline.
-- Local rule-based filtering before LLM classification.
-- Listing cache/dedupe storage.
-- Review queue for apply/maybe/skip decisions.
-- Tailored CV generation from profile, base CV, and selected job posting.
-- Application status tracking and email-based follow-up detection.
-- Provider abstraction for using OpenAI, Claude, Gemini, or another LLM service
-  behind one local interface.
-- Textual-based TUI dashboard for reviewing listings, scores, generated CVs,
-  and application statuses.
-
-## Setup
+## Current Quickstart
 
 Use Python 3.14.0, matching `.python-version`.
+
+If you use `pyenv`:
+
+```bash
+pyenv install 3.14.0
+pyenv local 3.14.0
+```
+
+Create and activate a virtual environment:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+```
+
+Install requirements:
+
+```bash
 pip install -r requirements.txt
 ```
 
-Create local private files from examples as needed:
+Create your private local files from the examples:
 
 ```bash
+cp data/cv.example.md data/cv.md
 cp data/profile.example.yaml data/profile.yaml
 cp data/portals.example.yaml data/portals.yaml
-cp data/cv.example.md data/cv.md
 ```
 
-Set your OpenAI API key in the shell:
+Edit `data/cv.md` with your real CV/resume information. Then edit
+`data/profile.yaml` with your contact details, target roles, role preferences,
+compensation expectations, location constraints, and proof points. The profile
+review command can help refine this file, but it needs a reasonable starting
+point.
+
+Set your OpenAI API key:
 
 ```bash
 export OPENAI_API_KEY="sk-..."
@@ -68,7 +66,36 @@ The current implementation uses OpenAI directly. A later provider interface
 should make the LLM backend swappable so the same workflows can run against
 OpenAI, Claude, Gemini, or another service.
 
-## Commands
+Review your profile against your CV:
+
+```bash
+python entrypoint.py profile-review
+```
+
+This calls the LLM once, prints recommendations, and saves the full proposed
+profile to `.job_tracker/profile_review.latest.json`.
+
+If the recommendations look good, apply the saved profile replacement without
+calling the LLM again:
+
+```bash
+python entrypoint.py profile-review --apply
+```
+
+For a one-shot interactive flow, generate recommendations and answer whether to
+apply them immediately:
+
+```bash
+python entrypoint.py profile-review --prompt
+```
+
+If the recommendations are not useful, discard the saved result:
+
+```bash
+python entrypoint.py profile-review --discard
+```
+
+## Current Commands
 
 Show commands:
 
@@ -95,10 +122,22 @@ Print raw JSON:
 python entrypoint.py profile-review --json
 ```
 
-Apply the proposed profile replacement:
+Apply the saved profile replacement:
 
 ```bash
 python entrypoint.py profile-review --apply
+```
+
+Generate and ask whether to apply immediately:
+
+```bash
+python entrypoint.py profile-review --prompt
+```
+
+Discard the saved review:
+
+```bash
+python entrypoint.py profile-review --discard
 ```
 
 Use a different model:
@@ -112,6 +151,28 @@ The command can also be run directly:
 ```bash
 python commands/profile_review.py
 ```
+
+## Status
+
+Currently implemented:
+
+- `profile-review`: compares `data/cv.md` to `data/profile.yaml` and recommends
+  profile changes.
+- Saved pending review flow so `--apply` does not make a second LLM call.
+- Environment-only OpenAI API key lookup via `OPENAI_API_KEY`.
+
+Planned:
+
+- Token-efficient job listing scan pipeline.
+- Local rule-based filtering before LLM classification.
+- Listing cache/dedupe storage.
+- Review queue for apply/maybe/skip decisions.
+- Tailored CV generation from profile, base CV, and selected job posting.
+- Application status tracking and email-based follow-up detection.
+- Provider abstraction for using OpenAI, Claude, Gemini, or another LLM service
+  behind one local interface.
+- Textual-based TUI dashboard for reviewing listings, scores, generated CVs,
+  and application statuses.
 
 ## Planned TUI
 
@@ -131,13 +192,18 @@ workflow remains scriptable and testable.
 
 `profile-review` sends the CV and current YAML profile to OpenAI and asks for:
 
-- a summary,
-- specific recommendations,
+- general comments,
+- specific revisions with current version, proposed change, and reasoning,
 - cautions for weakly supported claims,
 - a complete replacement `proposed_profile`.
 
 It validates that the proposed profile contains the expected top-level sections
-before writing anything. Without `--apply`, it only prints recommendations.
+before writing anything.
+
+Default mode calls the LLM and saves the structured result to
+`.job_tracker/profile_review.latest.json`. `--apply` reads that saved result and
+updates `data/profile.yaml` without making another LLM request. `--discard`
+deletes the saved result.
 
 Required profile sections:
 

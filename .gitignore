@@ -2,3 +2,4 @@ data/cv.md
 data/profile.yaml
 data/portals.yaml
 .env
+.job_tracker/

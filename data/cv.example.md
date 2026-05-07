@@ -7,6 +7,8 @@
 ✉️ [your.email@example.com](mailto:your.email@example.com)
 📞 [Your Phone Number]
 🌐 [Your Website or LinkedIn]
+LinkedIn: [Your LinkedIn URL]
+GitHub: [Your GitHub URL]
 
 ---
 
