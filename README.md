@@ -73,20 +73,12 @@ python entrypoint.py profile-review
 ```
 
 This calls the LLM once, prints recommendations, and saves the full proposed
-profile to `.job_tracker/profile_review.latest.json`.
-
-If the recommendations look good, apply the saved profile replacement without
-calling the LLM again:
+profile to `.job_tracker/profile_review.latest.json`. You are then asked
+whether to apply the changes immediately. If you decline, the review is kept
+on disk and you can apply it later without making another LLM call:
 
 ```bash
 python entrypoint.py profile-review --apply
-```
-
-For a one-shot interactive flow, generate recommendations and answer whether to
-apply them immediately:
-
-```bash
-python entrypoint.py profile-review --prompt
 ```
 
 If the recommendations are not useful, discard the saved result:
@@ -116,25 +108,19 @@ python entrypoint.py profile-review \
   --feedback "Avoid DevOps-only roles. Prefer backend/platform product work."
 ```
 
-Print raw JSON:
+Print raw JSON instead of the formatted summary:
 
 ```bash
 python entrypoint.py profile-review --json
 ```
 
-Apply the saved profile replacement:
+Apply a previously saved review without making another LLM call:
 
 ```bash
 python entrypoint.py profile-review --apply
 ```
 
-Generate and ask whether to apply immediately:
-
-```bash
-python entrypoint.py profile-review --prompt
-```
-
-Discard the saved review:
+Discard the saved review without changing the profile:
 
 ```bash
 python entrypoint.py profile-review --discard
@@ -200,10 +186,11 @@ workflow remains scriptable and testable.
 It validates that the proposed profile contains the expected top-level sections
 before writing anything.
 
-Default mode calls the LLM and saves the structured result to
-`.job_tracker/profile_review.latest.json`. `--apply` reads that saved result and
-updates `data/profile.yaml` without making another LLM request. `--discard`
-deletes the saved result.
+The default flow calls the LLM, prints the structured result, saves it to
+`.job_tracker/profile_review.latest.json`, then immediately asks whether to
+apply the changes. If you decline, the saved result stays on disk. `--apply`
+reads that saved result and updates `data/profile.yaml` without making another
+LLM request. `--discard` deletes the saved result without touching the profile.
 
 Required profile sections:
 
