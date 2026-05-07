@@ -1,0 +1,50 @@
+candidate:
+  full_name: "Steve Ballmer"
+  email: "steve.ballmer@microsoft.com"
+  phone: "(425) 882-8080"
+  location: "Bellevue, Washington, USA"
+  linkedin: "https://www.linkedin.com/in/steveballmer/"
+  portfolio_url: "https://www.microsoft.com/en-us/ceo"
+  github: null
+
+target_roles:
+  primary:
+    - "CEO"
+    - "Executive Leadership"
+    - "Business Development"
+  archetypes:
+    - name: "CEO"
+      level: "Executive"
+      fit: "primary"
+    - name: "COO"
+      level: "Senior Executive"
+      fit: "primary"
+    - name: "Sales Executive"
+      level: "Expert"
+      fit: "secondary"
+
+narrative:
+  headline: "Former CEO of Microsoft Corporation with extensive experience in executive leadership, sales, and business strategy."
+  exit_story: "Transformed Microsoft into a global technology leader through strategic acquisitions, product innovation, and aggressive market expansion. Known for energetic leadership style and commitment to empowering developers and entrepreneurs."
+  superpowers:
+    - "Strategic business development and partnerships"
+    - "Sales and marketing leadership"
+    - "Executive management and corporate governance"
+    - "Product strategy and innovation"
+  proof_points:
+    - "Led Microsoft through major acquisitions including Skype, LinkedIn, and GitHub"
+    - "Oversaw development of Windows, Office, and Azure platforms"
+    - "Founded USAFacts.org for government transparency"
+    - "Authored Execution IS the Strategy"
+
+compensation:
+  target_range: null
+  currency: "USD"
+  minimum: null
+  location_flexibility: "Remote or office-based in Seattle area"
+
+location:
+  country: "United States"
+  city: "Bellevue"
+  timezone: "PST"
+  visa_status: "US Citizen"
