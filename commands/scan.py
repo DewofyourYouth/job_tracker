@@ -18,7 +18,7 @@ Full pipeline:
   8. Display results with rich; optionally write JSON output.
 """
 
-from __future__ import annotations
+
 
 import json
 from datetime import datetime, timezone
@@ -197,11 +197,11 @@ def display_results(evaluated: list[tuple[ScoredListing, LLMEvaluation]]) -> Non
     table = Table(title="Top Job Listings", show_lines=True)
     table.add_column("#", style="dim", width=3)
     table.add_column("Score", width=6)
-    table.add_column("Company", style="bold", max_width=22)
-    table.add_column("Title", max_width=38)
-    table.add_column("Location", max_width=20)
+    table.add_column("Company", style="bold", max_width=22, no_wrap=True)
+    table.add_column("Title", max_width=40, no_wrap=True)
+    table.add_column("Location", max_width=20, no_wrap=True)
     table.add_column("Rec", width=6)
-    table.add_column("Red Flags", max_width=42)
+    table.add_column("Red Flags", max_width=44, no_wrap=True)
 
     for rank, (scored, evaluation) in enumerate(evaluated, 1):
         score = evaluation.fit_score
@@ -249,8 +249,8 @@ def display_scored_only(scored_listings: list[ScoredListing]) -> None:
     table = Table(title="Rule-Scored Listings", show_lines=False)
     table.add_column("#", style="dim", width=3)
     table.add_column("Total", width=7)
-    table.add_column("Company", style="bold", max_width=22)
-    table.add_column("Title", max_width=38)
+    table.add_column("Company", style="bold", max_width=22, no_wrap=True)
+    table.add_column("Title", max_width=40, no_wrap=True)
     table.add_column("role_fit", width=9)
     table.add_column("senior", width=7)
     table.add_column("location", width=9)

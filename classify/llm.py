@@ -11,7 +11,6 @@ Model: gpt-4o-mini by default (cheap, fast, good enough for fit scoring).
 Upgrade to gpt-4o for nuanced evaluation of borderline listings.
 """
 
-from __future__ import annotations
 
 import hashlib
 import json

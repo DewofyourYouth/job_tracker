@@ -15,7 +15,6 @@ Strategy per company (resolved by _pick_strategy):
 Search queries (portals.yaml search_queries section) always use websearch.
 """
 
-from __future__ import annotations
 
 import json
 import re

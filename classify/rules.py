@@ -8,7 +8,6 @@ The Python code here is generic — it implements the algorithm; the YAML
 defines what matters for this candidate. Never add personal preferences here.
 """
 
-from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field

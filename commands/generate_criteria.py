@@ -16,7 +16,6 @@ Usage:
   python entrypoint.py generate-criteria --dry-run        # print YAML, don't write
 """
 
-from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
