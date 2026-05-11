@@ -16,7 +16,6 @@ Usage:
   python entrypoint.py generate-criteria --dry-run        # print YAML, don't write
 """
 
-from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
@@ -33,6 +32,11 @@ CV_PATH = Path("data/cv.md")
 PROFILE_PATH = Path("data/profile.yaml")
 DEFAULT_OUTPUT = Path("data/scoring_criteria.yaml")
 EXAMPLE_PATH = Path("data/scoring_criteria.example.yaml")
+PORTALS_PATH = Path("data/portals.yaml")
+REQUIRED_KEYS = [
+    "weights", "tolerances", "role_fit",
+    "seniority", "location_remote", "tech_stack", "avoid", "compensation",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -40,18 +44,7 @@ EXAMPLE_PATH = Path("data/scoring_criteria.example.yaml")
 # ---------------------------------------------------------------------------
 
 def build_system_prompt() -> str:
-    """
-    System prompt for criteria extraction.
-
-    Instructs the model to act as a structured-data extractor: read the
-    candidate's CV and profile, then emit a YAML document that conforms to
-    the scoring_criteria.example.yaml schema. The model must NOT invent
-    information — every field must be derivable from the inputs.
-    """
-    # Load the example YAML as the schema reference so the model sees
-    # the exact structure it must produce. This avoids schema drift.
     schema = EXAMPLE_PATH.read_text() if EXAMPLE_PATH.exists() else ""
-
     return f"""You are a structured-data extraction assistant. Your job is to read a \
 candidate's CV (Markdown) and job-search profile (YAML), then produce a \
 scoring_criteria.yaml document that a job-listing evaluation pipeline will use \
@@ -77,12 +70,18 @@ emit the values.
 - role_fit.exact_archetypes: copy from profile.target_roles.primary and all \
 profile.target_roles.archetypes[].name values where fit == "primary".
 
-- role_fit.strong_keywords: extract the 2–3 word noun phrases that appear most \
-frequently across the exact_archetypes list (e.g., "Platform Engineer", \
-"Backend Engineer"). Include only phrases that a job title would realistically contain.
+- role_fit.strong_keywords: 2–4 word noun phrases that are specific enough to \
+discriminate the candidate's target roles from generic engineering jobs. A phrase \
+qualifies ONLY if it appears in 2 or more exact_archetypes, OR is a specialised \
+compound that rarely appears outside the target domain (e.g., "Platform Engineer", \
+"Infrastructure Engineer", "Developer Platform", "Internal Tools"). Do NOT include \
+generic phrases such as "Backend Engineer" or "Software Engineer" — those match \
+thousands of unrelated postings and belong in weak_keywords instead. Keep this list \
+short (2–5 items).
 
-- role_fit.weak_keywords: single words that are a weaker positive signal \
-(e.g., "Engineer", "Backend", "Infrastructure"). Keep this list short (3–6 items).
+- role_fit.weak_keywords: single words or short phrases that are a weak positive \
+signal (e.g., "Backend", "Infrastructure", "Backend Engineer"). These fire when \
+nothing stronger matched. Keep this list to 3–6 items.
 
 - seniority.target_level: the level field from profile.target_roles.archetypes \
 (e.g., "Senior"). level_scores: use schema defaults unless the profile implies \
@@ -118,53 +117,98 @@ provided as context, copy title_filter.positive and title_filter.negative verbat
 """
 
 
-def build_user_message(cv_text: str, profile_text: str) -> str:
+def build_user_message(
+    cv_text: str,
+    profile_text: str,
+    portals_title_filter: dict | None = None,
+) -> str:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    return f"""generated_at: {now}
-
---- CV (Markdown) ---
-{cv_text}
-
---- Profile (YAML) ---
-{profile_text}
-"""
+    message = (
+        f"generated_at: {now}\n\n"
+        f"--- CV (Markdown) ---\n{cv_text}\n\n"
+        f"--- Profile (YAML) ---\n{profile_text}\n"
+    )
+    if portals_title_filter:
+        message += (
+            "\n--- portals.yaml title_filter context ---\n"
+            f"{yaml.dump({'title_filter': portals_title_filter}, allow_unicode=True, sort_keys=False)}"
+        )
+    return message
 
 
 # ---------------------------------------------------------------------------
 # Post-processing
 # ---------------------------------------------------------------------------
 
+def strip_fences(raw: str) -> str:
+    """Remove markdown code fences if the model wrapped the YAML output."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        lines = raw.split("\n")
+        raw = "\n".join(lines[1:])
+        raw = raw.rsplit("```", 1)[0].strip()
+    return raw
+
+
 def inject_meta(raw_yaml: str, generated_at: str) -> str:
     """
-    Ensure meta.generated_at is set to the actual generation time,
-    in case the model used a placeholder value.
+    Ensure meta.generated_at and meta.source_files are correct regardless
+    of what the model emitted.
     """
-    # TODO:
-    #   parsed = yaml.safe_load(raw_yaml)
-    #   parsed.setdefault("meta", {})["generated_at"] = generated_at
-    #   parsed["meta"]["source_files"] = ["data/cv.md", "data/profile.yaml"]
-    #   return yaml.dump(parsed, allow_unicode=True, sort_keys=False)
-    raise NotImplementedError
+    parsed = yaml.safe_load(raw_yaml)
+    parsed.setdefault("meta", {})
+    parsed["meta"]["generated_at"] = generated_at
+    parsed["meta"]["source_files"] = ["data/cv.md", "data/profile.yaml"]
+    return yaml.dump(parsed, allow_unicode=True, sort_keys=False)
+
+
+def inject_title_filter(raw_yaml: str, title_filter: dict | None) -> str:
+    """Ensure generated criteria preserves the portal title filter when provided."""
+    if not title_filter:
+        return raw_yaml
+    parsed = yaml.safe_load(raw_yaml)
+    if not parsed.get("title_filter"):
+        parsed["title_filter"] = title_filter
+    return yaml.dump(parsed, allow_unicode=True, sort_keys=False)
 
 
 def validate_criteria(parsed: dict) -> list[str]:
     """
-    Sanity-check the generated YAML before writing it to disk.
-
-    Returns a list of warning strings (empty = all good). Does not raise —
-    warnings are surfaced to the user who can decide whether to accept or regenerate.
-
-    Checks:
-      - Required top-level keys present: weights, tolerances, role_fit,
-        seniority, location_remote, tech_stack, avoid, compensation.
-      - role_fit.exact_archetypes is a non-empty list.
-      - tech_stack.keywords is a non-empty list.
-      - avoid.hard_disqualify is a list (may be empty).
-      - All weight values are floats in [0.0, 1.0].
-      - compensation.minimum is a positive number.
+    Sanity-check the generated YAML. Returns warning strings (empty = clean).
+    Warnings are surfaced to the user; they don't abort the write.
     """
-    # TODO: implement checks; return list of warning strings.
-    raise NotImplementedError
+    warnings: list[str] = []
+
+    for key in REQUIRED_KEYS:
+        if key not in parsed:
+            warnings.append(f"missing top-level key: {key!r}")
+
+    archetypes = parsed.get("role_fit", {}).get("exact_archetypes", [])
+    if not archetypes:
+        warnings.append("role_fit.exact_archetypes is empty")
+
+    tech_kws = parsed.get("tech_stack", {}).get("keywords", [])
+    if not tech_kws:
+        warnings.append("tech_stack.keywords is empty")
+
+    avoid = parsed.get("avoid", {}).get("hard_disqualify")
+    if avoid is None:
+        warnings.append("avoid.hard_disqualify key missing")
+
+    weights = parsed.get("weights", {})
+    for name, val in weights.items():
+        try:
+            f = float(val)
+            if not 0.0 <= f <= 1.0:
+                warnings.append(f"weights.{name} = {val} is outside [0.0, 1.0]")
+        except (TypeError, ValueError):
+            warnings.append(f"weights.{name} is not a number: {val!r}")
+
+    minimum = parsed.get("compensation", {}).get("minimum", 0)
+    if not minimum or float(minimum) <= 0:
+        warnings.append("compensation.minimum is zero or missing")
+
+    return warnings
 
 
 # ---------------------------------------------------------------------------
@@ -194,10 +238,17 @@ def validate_criteria(parsed: dict) -> list[str]:
     help="Path to your profile.yaml file.",
 )
 @click.option(
-    "--model",
-    default="gpt-4o-mini",
+    "--portals", "portals_path",
+    default=str(PORTALS_PATH),
     show_default=True,
-    help="OpenAI model to use. Use gpt-4o for richer extraction.",
+    type=click.Path(exists=True),
+    help="Path to portals.yaml; its title_filter is copied into generated criteria.",
+)
+@click.option(
+    "--model",
+    default="gpt-4o",
+    show_default=True,
+    help="OpenAI model to use. gpt-4o is recommended for richer extraction.",
 )
 @click.option(
     "--dry-run",
@@ -215,6 +266,7 @@ def generate_criteria_command(
     output_path: str,
     cv_path: str,
     profile_path: str,
+    portals_path: str,
     model: str,
     dry_run: bool,
     force: bool,
@@ -223,53 +275,52 @@ def generate_criteria_command(
 
     output = Path(output_path)
 
-    # Guard against accidental overwrites of a tuned criteria file.
     if output.exists() and not dry_run and not force:
-        click.confirm(
-            f"{output} already exists. Overwrite?",
-            abort=True,
-        )
+        click.confirm(f"{output} already exists. Overwrite?", abort=True)
 
     cv_text = Path(cv_path).read_text()
     profile_text = Path(profile_path).read_text()
+    portals_config = yaml.safe_load(Path(portals_path).read_text()) or {}
+    portals_title_filter = portals_config.get("title_filter")
 
     console.print(f"[bold cyan]Generating scoring criteria[/] using [bold]{model}[/]...")
 
-    # TODO:
-    #   client = OpenAI()  # reads OPENAI_API_KEY from env
-    #
-    #   response = client.chat.completions.create(
-    #       model=model,
-    #       max_tokens=2048,
-    #       messages=[
-    #           {"role": "system", "content": build_system_prompt()},
-    #           {"role": "user",   "content": build_user_message(cv_text, profile_text)},
-    #       ],
-    #   )
-    #
-    #   raw_yaml = response.choices[0].message.content.strip()
-    #
-    #   # Strip markdown fences if the model wrapped the output.
-    #   if raw_yaml.startswith("```"):
-    #       raw_yaml = "\n".join(raw_yaml.split("\n")[1:])
-    #       raw_yaml = raw_yaml.rsplit("```", 1)[0].strip()
-    #
-    #   generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    #   final_yaml = inject_meta(raw_yaml, generated_at)
-    #   parsed = yaml.safe_load(final_yaml)
-    #   warnings = validate_criteria(parsed)
-    #   for w in warnings:
-    #       console.print(f"  [yellow]Warning:[/] {w}")
-    #
-    #   if dry_run:
-    #       console.print(Syntax(final_yaml, "yaml", theme="monokai"))
-    #       return
-    #
-    #   output.write_text(final_yaml)
-    #   console.print(f"[green]✓[/] Written to [bold]{output}[/]")
-    #   console.print(
-    #       f"  {len(parsed.get('role_fit', {}).get('exact_archetypes', []))} archetypes | "
-    #       f"{len(parsed.get('tech_stack', {}).get('keywords', []))} tech keywords | "
-    #       f"{len(parsed.get('avoid', {}).get('hard_disqualify', []))} hard-avoid roles"
-    #   )
-    raise NotImplementedError
+    client = OpenAI()
+    response = client.chat.completions.create(
+        model=model,
+        max_tokens=2048,
+        messages=[
+            {"role": "system", "content": build_system_prompt()},
+            {
+                "role": "user",
+                "content": build_user_message(
+                    cv_text,
+                    profile_text,
+                    portals_title_filter,
+                ),
+            },
+        ],
+    )
+
+    raw_yaml = strip_fences(response.choices[0].message.content or "")
+    generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    final_yaml = inject_meta(raw_yaml, generated_at)
+    final_yaml = inject_title_filter(final_yaml, portals_title_filter)
+
+    parsed = yaml.safe_load(final_yaml)
+    warns = validate_criteria(parsed)
+    for w in warns:
+        console.print(f"  [yellow]Warning:[/] {w}")
+
+    if dry_run:
+        console.print(Syntax(final_yaml, "yaml", theme="monokai"))
+        return
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(final_yaml)
+    console.print(f"[green]✓[/] Written to [bold]{output}[/]")
+    console.print(
+        f"  {len(parsed.get('role_fit', {}).get('exact_archetypes', []))} archetypes | "
+        f"{len(parsed.get('tech_stack', {}).get('keywords', []))} tech keywords | "
+        f"{len(parsed.get('avoid', {}).get('hard_disqualify', []))} hard-avoid roles"
+    )

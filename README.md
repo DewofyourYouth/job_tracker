@@ -2,13 +2,17 @@
 
 Inspired by [career-ops](https://github.com/santifer/career-ops) by [santifer](https://github.com/santifer).
 
-A local-first job search assistant built around the principle that **API calls cost money and should be earned**. Local files, keyword rules, and deduplication handle the volume; the LLM is reserved for the decisions that actually benefit from it — profile review, fit evaluation of shortlisted jobs, and tailored CV generation.
+A local-first job search assistant built around the principle that **API calls cost money and should be earned**. Local files, keyword rules, and deduplication handle the volume; the LLM is reserved for the decisions that actually benefit from it — profile review, fit evaluation of shortlisted jobs, and detailed job-fit reporting.
 
 The project is intentionally built around plain files:
 
 - `data/cv.md` - private CV/resume text.
 - `data/profile.yaml` - private structured candidate profile used by classifiers.
 - `data/portals.yaml` - private portal/search configuration.
+- `data/scoring_criteria.yaml` - private generated scoring rules.
+- `data/listings.csv` - local tracking table for discovered, scored, and reported jobs.
+- `output/llm_cache/` - cached quick LLM evaluations.
+- `output/reports/` - detailed markdown job-fit reports.
 - `data/*.example.*` - safe examples that can be committed.
 
 ## Current Quickstart
@@ -87,6 +91,22 @@ If the recommendations are not useful, discard the saved result:
 python entrypoint.py profile-review --discard
 ```
 
+Generate scoring criteria from the CV/profile and portal title filter:
+
+```bash
+python entrypoint.py generate-criteria
+```
+
+Run the full job report pipeline:
+
+```bash
+python entrypoint.py pipeline
+```
+
+By default the pipeline sends up to 100 rule-ranked listings to the quick LLM
+evaluation stage, evaluates them with 5 concurrent workers, and writes detailed
+reports for evaluated listings with `fit_score >= 5/10`.
+
 ## Current Commands
 
 Show commands:
@@ -94,6 +114,8 @@ Show commands:
 ```bash
 python entrypoint.py --help
 ```
+
+### Profile Review
 
 Review the profile against the CV:
 
@@ -138,6 +160,71 @@ The command can also be run directly:
 python commands/profile_review.py
 ```
 
+### Generate Criteria
+
+Generate `data/scoring_criteria.yaml` from `data/cv.md`, `data/profile.yaml`,
+and the optional `title_filter` in `data/portals.yaml`:
+
+```bash
+python entrypoint.py generate-criteria
+```
+
+Useful options:
+
+```bash
+python entrypoint.py generate-criteria --dry-run
+python entrypoint.py generate-criteria --force
+python entrypoint.py generate-criteria --model gpt-4o
+```
+
+The generated criteria controls local weights, hard thresholds, title filters,
+location rules, compensation assumptions, and `tolerances.top_n_for_llm`
+(currently defaulting to `100`).
+
+### Scan
+
+Run discovery, rule scoring, optional description fetching, and quick LLM
+evaluation:
+
+```bash
+python entrypoint.py scan
+```
+
+Useful options:
+
+```bash
+python entrypoint.py scan --skip-llm
+python entrypoint.py scan --top-n 150
+python entrypoint.py scan --fetch-descriptions
+python entrypoint.py scan --llm-concurrency 8
+python entrypoint.py scan --output-json output/scan.json
+```
+
+`scan` writes/upserts `data/listings.csv`. URL is the dedupe key. Existing CSV
+values are preserved when the current stage does not know a field yet.
+
+### Pipeline
+
+Run the end-to-end report workflow:
+
+```bash
+python entrypoint.py pipeline
+```
+
+Useful options:
+
+```bash
+python entrypoint.py pipeline --llm-concurrency 8
+python entrypoint.py pipeline --reports-top-n 25
+python entrypoint.py pipeline --min-report-score 6
+python entrypoint.py pipeline --output-json output/pipeline.json
+```
+
+`pipeline` loads or generates scoring criteria, scans job boards, applies local
+hard filters, rule-scores surviving listings, fetches full postings for the top
+LLM candidates, runs quick LLM evaluation with bounded concurrency, then writes
+or reuses detailed reports for evaluated listings with `fit_score >= 5/10`.
+
 ## Status
 
 Currently implemented:
@@ -145,13 +232,26 @@ Currently implemented:
 - `profile-review`: compares `data/cv.md` to `data/profile.yaml` and recommends
   profile changes.
 - Saved pending review flow so `--apply` does not make a second LLM call.
+- `generate-criteria`: derives `data/scoring_criteria.yaml` from the CV,
+  profile, and portal title filter.
+- `scan`: discovers jobs from configured sources, applies rule scoring, writes
+  `data/listings.csv`, and can run quick LLM evaluations.
+- `pipeline`: end-to-end flow for scanning, scoring, quick LLM evaluation, and
+  detailed markdown report generation.
+- Greenhouse, Lever, Workable, Ashby, and Brave Search discovery paths.
+- Greenhouse detail fetching for direct API listings and Greenhouse URLs found
+  through search.
+- Enriched `listings.csv` fields such as location, department, employment type,
+  workplace type, salary, source, first/last seen, rule score, LLM score,
+  recommendation, report path, strengths, and red flags.
+- Context-sensitive LLM cache files in `output/llm_cache/`.
+- Bounded parallel quick LLM evaluation via `--llm-concurrency`.
+- Report reuse by listing URL so reruns do not regenerate the same detailed
+  markdown report.
 - Environment-only OpenAI API key lookup via `OPENAI_API_KEY`.
 
 Planned:
 
-- Token-efficient job listing scan pipeline.
-- Local rule-based filtering before LLM classification.
-- Listing cache/dedupe storage.
 - Review queue for apply/maybe/skip decisions.
 - Tailored CV generation from profile, base CV, and selected job posting.
 - Application status tracking and email-based follow-up detection.
@@ -203,50 +303,69 @@ Required profile sections:
 
 ## Scanning Design
 
-The whole pipeline is designed to minimize API calls. Cheap local work filters out
-the noise so the LLM only ever sees a small, high-value slice of listings.
+The pipeline is designed to minimize expensive LLM calls. Job board API/search
+requests collect the broad pool, cheap local rules narrow it, and only the
+highest-ranked survivors reach the quick LLM evaluation stage.
 
-Target shape:
+Default funnel shape:
 
 ```text
-1000 raw listings
--> 400 after dedupe
--> 120 after local filters
--> 40 after detail-page fetch
--> 15-30 sent to LLM
+raw job board/search results
+-> deduped RawListing objects
+-> hard title/avoid filter
+-> weighted local rule scoring
+-> top 100 sent to quick LLM evaluation
+-> detailed reports for LLM fit_score >= 5/10
 ```
 
-### Discovery (no API calls)
+`top_n_for_llm` lives in `data/scoring_criteria.yaml` and defaults to `100`.
+The `scan` command can override it for one run with `--top-n`.
+
+### Discovery
 
 1. Load portal/search configuration from `data/portals.yaml`.
 2. Scan configured sources for job openings.
-3. Extract listing summaries only: title, company, location, URL, posted date, and snippet.
-4. Normalize listings into one internal shape.
-5. Dedupe by stable key before doing any expensive work.
+3. Prefer structured ATS APIs where possible: Greenhouse, Lever, Workable, and Ashby.
+4. Use Brave Search for configured search-query discovery when needed.
+5. Normalize listings into `RawListing` objects and dedupe by normalized URL.
 
-### Local Triage (no API calls)
+### Local Triage
 
 1. Filter obvious poor matches locally using:
    - keyword rules for target roles, required skills, avoid terms, seniority,
      location, and compensation,
-   - grep-style matching over title/snippet/description,
-   - local semantic search or embeddings for CV/profile similarity.
-2. Fetch full job pages only for listings that survive local triage.
-3. Store filtered listings with a status such as `DISCOVERED` or `TRIAGED`.
+   - title-filter positives/negatives from `portals.yaml` or generated criteria,
+   - grep-style matching over title and fetched descriptions,
+   - optional local semantic scoring when enabled in criteria.
+2. Write hard-filter survivors into `data/listings.csv`.
+3. Rule-score survivors and split them into top LLM candidates, surviving cut
+   listings, and below-threshold listings.
+4. Preserve cumulative CSV data across runs; URL is the dedupe/upsert key.
 
 ### LLM Evaluation (API call per surviving listing)
 
-1. Send compact job excerpts to the LLM only for high-value survivors.
-2. Ask the LLM for a structured fit evaluation:
-   score, rationale, concerns, matched strengths, missing requirements, and
-   recommended action.
-3. Cache LLM results by profile version, job content hash, and prompt version
-   so re-runs don't re-spend.
-4. Put strong matches into the tracker as `EVALUATE` with a score.
-5. Generate an ordered review list by score, recency, source quality, and
-   application effort.
+1. Fetch full postings for top LLM candidates before evaluation. Greenhouse URLs
+   found through search are upgraded through the Greenhouse detail API when possible.
+2. Send compact job excerpts to the quick LLM evaluator.
+3. Evaluate listings with bounded thread-pool concurrency
+   (`--llm-concurrency`, default `5`).
+4. Ask the LLM for a structured fit evaluation:
+   `fit_score` out of 10, summary, strengths, red flags, and recommendation.
+5. Cache results in `output/llm_cache/` by listing context, criteria, and model
+   so reruns do not re-spend unless relevant inputs change.
+6. Sort results by LLM score, preserving local rule order as the tie-breaker.
 
-### Tailored Application Materials (API call per application)
+### Detailed Reports
+
+1. Generate detailed markdown reports for evaluated listings with
+   `fit_score >= 5/10` by default.
+2. Reports are written to `output/reports/`.
+3. Existing reports for the exact listing URL are reused instead of regenerated.
+4. New report filenames include a short URL hash so duplicate titles at the
+   same company do not overwrite each other.
+5. Report paths are written back into `data/listings.csv`.
+
+### Tailored Application Materials (planned)
 
 1. For jobs the candidate chooses to pursue, generate a tailored CV plan from:
    `data/profile.yaml`, `data/cv.md`, and the selected job description.
@@ -280,5 +399,8 @@ Private files are ignored:
 - `data/cv.md`
 - `data/profile.yaml`
 - `data/portals.yaml`
+- `data/scoring_criteria.yaml`
+- `data/listings.csv`
+- `output/`
 
 Commit example files and code, not personal profile data or API keys.
