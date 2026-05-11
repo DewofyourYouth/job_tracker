@@ -8,7 +8,7 @@ Requires data/scoring_criteria.yaml to exist (generate with `generate-criteria`)
 CLI weight/tolerance flags override the YAML values for one-off experiments.
 
 Full pipeline:
-  1. Load scoring_criteria.yaml → base config + all scoring rules.
+  1. Load scoring_criteria.yaml + optional scoring_tuning.yaml.
   2. Load portals.yaml for ingestion sources.
   3. Ingest all enabled sources → list[RawListing].
   4. Rule-based pre-filter + weighted scoring → list[ScoredListing].
@@ -22,6 +22,7 @@ Full pipeline:
 
 import csv
 import json
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,7 @@ from rich.table import Table
 
 from classify.llm import DEFAULT_LLM_CONCURRENCY, LLMEvaluation, batch_evaluate
 from classify.rules import (
+    DEFAULT_TUNING_PATH,
     RawListing,
     ScoredListing,
     ScoringConfig,
@@ -40,6 +42,7 @@ from classify.rules import (
     ScoringWeights,
     config_from_criteria,
     load_criteria,
+    load_tuning_config,
     rank_and_narrow,
     score_listing,
 )
@@ -336,28 +339,29 @@ def upsert_listings_csv(
 
     console.print(f"  [dim]listings.csv updated ({len(rows)} entries)[/]")
 
-# Expose default values for help text only — actual defaults come from YAML.
+# Expose built-in fallback values for help text only. Runtime values come from
+# scoring_criteria.yaml and are overridden by scoring_tuning.yaml.
 _W = ScoringWeights()
 _T = ScoringTolerances()
 
 
 @click.command("scan")
-# -- Weight overrides (default shown is the dataclass default; actual default comes from YAML) --
+# -- Weight overrides (persistent values come from criteria/tuning YAML) --
 @click.option("--weight-role-fit",   default=None, type=float,
-              help=f"Override role archetype match weight (YAML default: {_W.role_fit}).")
+              help=f"Override role archetype match weight for this run (fallback: {_W.role_fit}).")
 @click.option("--weight-seniority",  default=None, type=float,
-              help=f"Override seniority level weight (YAML default: {_W.seniority}).")
+              help=f"Override seniority level weight for this run (fallback: {_W.seniority}).")
 @click.option("--weight-location",   default=None, type=float,
-              help=f"Override location/remote weight (YAML default: {_W.location_remote}).")
+              help=f"Override location/remote weight for this run (fallback: {_W.location_remote}).")
 @click.option("--weight-tech-stack", default=None, type=float,
-              help=f"Override tech stack weight (YAML default: {_W.tech_stack}).")
+              help=f"Override tech stack weight for this run (fallback: {_W.tech_stack}).")
 @click.option("--weight-avoid",      default=None, type=float,
-              help=f"Override avoid-role penalty weight (YAML default: {_W.avoid_penalty}).")
+              help=f"Override avoid-role penalty weight for this run (fallback: {_W.avoid_penalty}).")
 # -- Tolerance overrides --
 @click.option("--min-score",         default=None, type=float,
-              help=f"Override min score threshold (YAML default: {_T.min_score_threshold}).")
+              help=f"Override min score threshold for this run (fallback: {_T.min_score_threshold}).")
 @click.option("--top-n",             default=None, type=int,
-              help=f"Override top-N for LLM (YAML default: {_T.top_n_for_llm}).")
+              help=f"Override top-N for LLM for this run (fallback: {_T.top_n_for_llm}).")
 @click.option("--salary-tolerance",  default=None, type=float,
               help="Override salary-below-min tolerance fraction.")
 @click.option("--location-override", default=None, type=float,
@@ -380,6 +384,10 @@ _T = ScoringTolerances()
               default=str(CRITERIA_PATH), show_default=True,
               type=click.Path(),
               help="Path to scoring_criteria.yaml (generate with generate-criteria).")
+@click.option("--tuning-config", "tuning_path",
+              default=str(DEFAULT_TUNING_PATH), show_default=True,
+              type=click.Path(),
+              help="Path to scoring_tuning.yaml with user-adjustable numeric weights and score ladders.")
 @click.option("--portals-config", "portals_path",
               default=str(Path("data/portals.yaml")), show_default=True,
               type=click.Path(exists=True),
@@ -401,6 +409,7 @@ def scan_command(
     no_cache: bool,
     output_json: str | None,
     criteria_path: str,
+    tuning_path: str,
     portals_path: str,
 ) -> None:
     """Scan job boards, score listings, and evaluate top results with LLM."""
@@ -408,7 +417,10 @@ def scan_command(
     criteria = load_criteria(Path(criteria_path))
     portals_config = load_portals_config(Path(portals_path))
     criteria = apply_portals_title_filter(criteria, portals_config)
-    config = config_from_criteria(criteria)
+    tuning_file = Path(tuning_path)
+    tuning_required = tuning_file != DEFAULT_TUNING_PATH
+    tuning = load_tuning_config(tuning_file, required=tuning_required)
+    config = config_from_criteria(criteria, tuning)
 
     if weight_role_fit is not None:
         config.weights.role_fit = weight_role_fit
@@ -440,6 +452,14 @@ def scan_command(
     # Stage 2: Rule-based filter and rank
     # -----------------------------------------------------------------------
     console.print("[bold cyan]Stage 2/3:[/] Scoring and narrowing...")
+    if config.weights.semantic_fit > 0:
+        from classify.semantic import scorer_from_criteria
+
+        console.print(
+            "  [dim]Loading semantic scorer because semantic_fit weight is enabled.[/]"
+        )
+        config.semantic_scorer = scorer_from_criteria(criteria)
+
     top, rest = rank_and_narrow(raw_listings, criteria, config)
     survived_cut = [s for s in rest if not s.disqualified]
     disqualified = [s for s in rest if s.disqualified]
@@ -591,18 +611,16 @@ def write_json_output(
     data = {
         "run_at": datetime.now(timezone.utc).isoformat(),
         "config": {
-            "weights": {
-                "role_fit": config.weights.role_fit,
-                "seniority": config.weights.seniority,
-                "location_remote": config.weights.location_remote,
-                "tech_stack": config.weights.tech_stack,
-                "avoid_penalty": config.weights.avoid_penalty,
+            "weights": asdict(config.weights),
+            "tolerances": asdict(config.tolerances),
+            "score_ladders": {
+                "role_fit": asdict(config.role_fit_ladder),
+                "acceptable_location": asdict(config.acceptable_location_ladder),
+                "avoid": asdict(config.avoid_penalty_ladder),
+                "tech_stack": asdict(config.tech_stack_ladder),
             },
-            "tolerances": {
-                "min_score_threshold": config.tolerances.min_score_threshold,
-                "top_n_for_llm": config.tolerances.top_n_for_llm,
-                "salary_below_min_tolerance_pct": config.tolerances.salary_below_min_tolerance_pct,
-                "location_override_role_fit": config.tolerances.location_override_role_fit,
+            "adjustments": {
+                "salary": asdict(config.salary_adjustments),
             },
         },
         "results": [

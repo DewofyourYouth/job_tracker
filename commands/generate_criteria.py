@@ -5,9 +5,10 @@ This command reads your CV and profile, sends them to the OpenAI API, and asks i
 to extract a structured YAML file of scoring criteria. The output file is gitignored
 and must be regenerated whenever your profile or CV changes significantly.
 
-The generated file defines ALL personal parameters used by classify/rules.py:
+The generated file defines candidate-specific parameters used by classify/rules.py:
 role archetypes, tech keywords, location rules, avoid patterns, compensation thresholds,
-weights, and tolerances. Nothing personal is hardcoded in the Python source.
+and baseline weights/tolerances. Hand-tuned numeric overrides live separately in
+data/scoring_tuning.yaml so criteria can be regenerated without losing tuning.
 
 Usage:
   python entrypoint.py generate-criteria
@@ -62,10 +63,10 @@ The output must conform exactly to the following schema (use it as a template):
 - meta.generated_at: use the ISO 8601 timestamp you are given in the user message.
 - meta.source_files: always ["data/cv.md", "data/profile.yaml"].
 
-- weights / tolerances: start from the schema defaults. Adjust only if the profile \
-strongly implies a different balance (e.g., a candidate who lists compensation as \
-non-negotiable might warrant a higher avoid_penalty weight). Explain nothing — just \
-emit the values.
+- weights / tolerances: use the schema defaults unless the profile explicitly requires \
+a different baseline. Do not try to optimize ranking behavior here; user-adjustable \
+numeric overrides belong in data/scoring_tuning.yaml. Explain nothing — just emit the \
+values.
 
 - role_fit.exact_archetypes: copy from profile.target_roles.primary and all \
 profile.target_roles.archetypes[].name values where fit == "primary".

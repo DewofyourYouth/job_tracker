@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 
 CRITERIA_PATH = Path("data/scoring_criteria.yaml")
+DEFAULT_TUNING_PATH = Path("data/scoring_tuning.yaml")
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +58,8 @@ class ScoredListing:
 
 
 # ---------------------------------------------------------------------------
-# Config — weights and tolerances, loaded from or overridden via criteria YAML
+# Config — weights, tolerances, ladders, and adjustments.
+# Built-in defaults are overridden by generated criteria and then by tuning YAML.
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -67,12 +69,12 @@ class ScoringWeights:
     location_remote: float = 0.15
     tech_stack: float = 0.15
     avoid_penalty: float = 0.10
-    semantic_fit: float = 0.0   # disabled by default; set in criteria YAML to enable
+    semantic_fit: float = 0.0   # disabled by default; set in criteria/tuning YAML to enable
 
 
 @dataclass
 class ScoringTolerances:
-    min_score_threshold: float = 0.25
+    min_score_threshold: float = 0.35
     top_n_for_llm: int = 100
     salary_below_min_tolerance_pct: float = 0.10
     location_override_role_fit: float = 0.80
@@ -80,9 +82,48 @@ class ScoringTolerances:
 
 
 @dataclass
+class RoleFitLadder:
+    exact_archetype: float = 1.0
+    strong_keyword_multiple: float = 0.75
+    strong_keyword_single: float = 0.50
+    strong_keyword_multiple_min_hits: int = 2
+    weak_keyword: float = 0.30
+    no_match: float = 0.0
+
+
+@dataclass
+class AcceptableLocationLadder:
+    remote: float = 1.0
+    hybrid: float = 0.85
+    onsite: float = 0.75
+
+
+@dataclass
+class AvoidPenaltyLadder:
+    hard_title: float = 0.20
+    soft_title: float = 0.60
+    clean: float = 1.0
+
+
+@dataclass
+class TechStackLadder:
+    zero_match_floor: float = 0.20
+
+
+@dataclass
+class SalaryAdjustments:
+    below_min_penalty: float = 0.15
+
+
+@dataclass
 class ScoringConfig:
     weights: ScoringWeights = field(default_factory=ScoringWeights)
     tolerances: ScoringTolerances = field(default_factory=ScoringTolerances)
+    role_fit_ladder: RoleFitLadder = field(default_factory=RoleFitLadder)
+    acceptable_location_ladder: AcceptableLocationLadder = field(default_factory=AcceptableLocationLadder)
+    avoid_penalty_ladder: AvoidPenaltyLadder = field(default_factory=AvoidPenaltyLadder)
+    tech_stack_ladder: TechStackLadder = field(default_factory=TechStackLadder)
+    salary_adjustments: SalaryAdjustments = field(default_factory=SalaryAdjustments)
     semantic_scorer: Optional["SemanticScorer"] = None
 
 
@@ -95,25 +136,189 @@ def load_criteria(path: Path = CRITERIA_PATH) -> dict:
     return yaml.safe_load(path.read_text())
 
 
-def config_from_criteria(criteria: dict) -> ScoringConfig:
-    """Build a ScoringConfig from a loaded criteria dict."""
-    w = criteria.get("weights", {})
-    t = criteria.get("tolerances", {})
+def load_tuning_config(path: Path = DEFAULT_TUNING_PATH, *, required: bool = False) -> dict:
+    """
+    Load optional user-adjustable score tuning.
+
+    `scoring_criteria.yaml` is generated from the CV/profile and can be
+    regenerated. `scoring_tuning.yaml` is hand-edited and overrides numeric
+    weights, thresholds, score ladders, and penalties.
+    """
+    if not path.exists():
+        if required:
+            raise FileNotFoundError(f"Scoring tuning config not found: {path}")
+        return {}
+
+    data = yaml.safe_load(path.read_text()) or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"{path} must contain a YAML mapping.")
+    return data
+
+
+def _deep_merge(base: dict | None, override: dict | None) -> dict:
+    if base is None:
+        base = {}
+    if override is None:
+        override = {}
+    if not isinstance(base, dict) or not isinstance(override, dict):
+        raise ValueError("Scoring config sections must be YAML mappings.")
+
+    result = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def _float_setting(value, default: float, name: str) -> float:
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be numeric, got {value!r}") from exc
+
+
+def _int_setting(value, default: int, name: str) -> int:
+    if value is None:
+        return default
+    try:
+        return int(float(value))
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{name} must be an integer, got {value!r}") from exc
+
+
+def config_from_criteria(criteria: dict, tuning: dict | None = None) -> ScoringConfig:
+    """
+    Build a ScoringConfig from generated criteria plus optional tuning overrides.
+
+    Merge order:
+      1. dataclass defaults,
+      2. numeric values in scoring_criteria.yaml,
+      3. numeric overrides in scoring_tuning.yaml.
+    """
+    tuning = tuning or {}
+    w = _deep_merge(criteria.get("weights", {}), tuning.get("weights", {}))
+    t = _deep_merge(criteria.get("tolerances", {}), tuning.get("tolerances", {}))
+    ladders = _deep_merge(
+        criteria.get("score_ladders", {}),
+        tuning.get("score_ladders", {}),
+    )
+    adjustments = _deep_merge(
+        criteria.get("adjustments", {}),
+        tuning.get("adjustments", {}),
+    )
+
+    role_fit_ladder = ladders.get("role_fit", {})
+    acceptable_location_ladder = ladders.get("acceptable_location", {})
+    avoid_penalty_ladder = ladders.get("avoid", {})
+    tech_stack_ladder = _deep_merge(
+        {"zero_match_floor": criteria.get("tech_stack", {}).get("zero_match_floor", 0.20)},
+        ladders.get("tech_stack", {}),
+    )
+    salary_adjustments = adjustments.get("salary", {})
+
     return ScoringConfig(
         weights=ScoringWeights(
-            role_fit=w.get("role_fit", 0.40),
-            seniority=w.get("seniority", 0.20),
-            location_remote=w.get("location_remote", 0.15),
-            tech_stack=w.get("tech_stack", 0.15),
-            avoid_penalty=w.get("avoid_penalty", 0.10),
-            semantic_fit=w.get("semantic_fit", 0.0),
+            role_fit=_float_setting(w.get("role_fit"), 0.40, "weights.role_fit"),
+            seniority=_float_setting(w.get("seniority"), 0.20, "weights.seniority"),
+            location_remote=_float_setting(
+                w.get("location_remote"), 0.15, "weights.location_remote"
+            ),
+            tech_stack=_float_setting(w.get("tech_stack"), 0.15, "weights.tech_stack"),
+            avoid_penalty=_float_setting(w.get("avoid_penalty"), 0.10, "weights.avoid_penalty"),
+            semantic_fit=_float_setting(w.get("semantic_fit"), 0.0, "weights.semantic_fit"),
         ),
         tolerances=ScoringTolerances(
-            min_score_threshold=t.get("min_score_threshold", 0.25),
-            top_n_for_llm=t.get("top_n_for_llm", 100),
-            salary_below_min_tolerance_pct=t.get("salary_below_min_tolerance_pct", 0.10),
-            location_override_role_fit=t.get("location_override_role_fit", 0.80),
-            min_title_keyword_hits=t.get("min_title_keyword_hits", 1),
+            min_score_threshold=_float_setting(
+                t.get("min_score_threshold"), 0.35, "tolerances.min_score_threshold"
+            ),
+            top_n_for_llm=_int_setting(t.get("top_n_for_llm"), 100, "tolerances.top_n_for_llm"),
+            salary_below_min_tolerance_pct=_float_setting(
+                t.get("salary_below_min_tolerance_pct"),
+                0.10,
+                "tolerances.salary_below_min_tolerance_pct",
+            ),
+            location_override_role_fit=_float_setting(
+                t.get("location_override_role_fit"),
+                0.80,
+                "tolerances.location_override_role_fit",
+            ),
+            min_title_keyword_hits=_int_setting(
+                t.get("min_title_keyword_hits"), 1, "tolerances.min_title_keyword_hits"
+            ),
+        ),
+        role_fit_ladder=RoleFitLadder(
+            exact_archetype=_float_setting(
+                role_fit_ladder.get("exact_archetype"),
+                1.0,
+                "score_ladders.role_fit.exact_archetype",
+            ),
+            strong_keyword_multiple=_float_setting(
+                role_fit_ladder.get("strong_keyword_multiple"),
+                0.75,
+                "score_ladders.role_fit.strong_keyword_multiple",
+            ),
+            strong_keyword_single=_float_setting(
+                role_fit_ladder.get("strong_keyword_single"),
+                0.50,
+                "score_ladders.role_fit.strong_keyword_single",
+            ),
+            strong_keyword_multiple_min_hits=_int_setting(
+                role_fit_ladder.get("strong_keyword_multiple_min_hits"),
+                2,
+                "score_ladders.role_fit.strong_keyword_multiple_min_hits",
+            ),
+            weak_keyword=_float_setting(
+                role_fit_ladder.get("weak_keyword"), 0.30, "score_ladders.role_fit.weak_keyword"
+            ),
+            no_match=_float_setting(
+                role_fit_ladder.get("no_match"), 0.0, "score_ladders.role_fit.no_match"
+            ),
+        ),
+        acceptable_location_ladder=AcceptableLocationLadder(
+            remote=_float_setting(
+                acceptable_location_ladder.get("remote"),
+                1.0,
+                "score_ladders.acceptable_location.remote",
+            ),
+            hybrid=_float_setting(
+                acceptable_location_ladder.get("hybrid"),
+                0.85,
+                "score_ladders.acceptable_location.hybrid",
+            ),
+            onsite=_float_setting(
+                acceptable_location_ladder.get("onsite"),
+                0.75,
+                "score_ladders.acceptable_location.onsite",
+            ),
+        ),
+        avoid_penalty_ladder=AvoidPenaltyLadder(
+            hard_title=_float_setting(
+                avoid_penalty_ladder.get("hard_title"), 0.20, "score_ladders.avoid.hard_title"
+            ),
+            soft_title=_float_setting(
+                avoid_penalty_ladder.get("soft_title"), 0.60, "score_ladders.avoid.soft_title"
+            ),
+            clean=_float_setting(
+                avoid_penalty_ladder.get("clean"), 1.0, "score_ladders.avoid.clean"
+            ),
+        ),
+        tech_stack_ladder=TechStackLadder(
+            zero_match_floor=_float_setting(
+                tech_stack_ladder.get("zero_match_floor"),
+                0.20,
+                "score_ladders.tech_stack.zero_match_floor",
+            ),
+        ),
+        salary_adjustments=SalaryAdjustments(
+            below_min_penalty=_float_setting(
+                salary_adjustments.get("below_min_penalty"),
+                0.15,
+                "adjustments.salary.below_min_penalty",
+            ),
         ),
     )
 
@@ -139,7 +344,9 @@ def _any_phrase_in(phrases: list[str], text: str) -> str | None:
 # Stage 1: Hard pre-filter
 # ---------------------------------------------------------------------------
 
-def passes_title_filter(listing: RawListing, criteria: dict) -> bool:
+def passes_title_filter(
+    listing: RawListing, criteria: dict, config: ScoringConfig | None = None
+) -> bool:
     """
     Gate on positive keyword presence and negative keyword absence.
 
@@ -166,7 +373,11 @@ def passes_title_filter(listing: RawListing, criteria: dict) -> bool:
     if not positives:
         return True  # nothing to filter on → pass all
 
-    min_hits = criteria.get("tolerances", {}).get("min_title_keyword_hits", 1)
+    min_hits = (
+        config.tolerances.min_title_keyword_hits
+        if config is not None
+        else criteria.get("tolerances", {}).get("min_title_keyword_hits", 1)
+    )
     hits = sum(1 for kw in positives if kw and _phrase_in(kw, title))
     return hits >= min_hits
 
@@ -182,7 +393,7 @@ def passes_hard_rules(
       2. Avoid hard-disqualify: if any hard_disqualify phrase appears in the title
          AND no role_fit strong_keyword also appears, the listing is a pure avoid-role.
     """
-    if not passes_title_filter(listing, criteria):
+    if not passes_title_filter(listing, criteria, config):
         return False, f"title failed keyword filter: {listing.title!r}"
 
     avoid = criteria.get("avoid", {})
@@ -203,18 +414,21 @@ def passes_hard_rules(
 # Stage 2: Weighted scoring
 # ---------------------------------------------------------------------------
 
-def score_role_fit(listing: RawListing, criteria: dict) -> tuple[float, str]:
+def score_role_fit(
+    listing: RawListing, criteria: dict, config: ScoringConfig
+) -> tuple[float, str]:
     """
     0.0 – 1.0 for how closely the title matches target role archetypes.
 
     Ladder (title checked first, description as fallback for weak signals):
-      exact_archetype in title             → 1.0
-      ≥2 strong_keywords in title          → 0.75
-      1 strong_keyword in title            → 0.50
-      any weak_keyword in title or desc    → 0.30
-      no match                             → 0.0
+      exact_archetype in title             → score_ladders.role_fit.exact_archetype
+      N strong_keywords in title           → score_ladders.role_fit.strong_keyword_multiple
+      1 strong_keyword in title            → score_ladders.role_fit.strong_keyword_single
+      any weak_keyword in title or desc    → score_ladders.role_fit.weak_keyword
+      no match                             → score_ladders.role_fit.no_match
     """
     rf = criteria.get("role_fit", {})
+    ladder = config.role_fit_ladder
     exact = rf.get("exact_archetypes", [])
     strong = rf.get("strong_keywords", [])
     weak = rf.get("weak_keywords", [])
@@ -223,19 +437,19 @@ def score_role_fit(listing: RawListing, criteria: dict) -> tuple[float, str]:
 
     if _any_phrase_in(exact, title):
         match = _any_phrase_in(exact, title)
-        return 1.0, f"exact archetype match: {match!r}"
+        return ladder.exact_archetype, f"exact archetype match: {match!r}"
 
     strong_hits = [kw for kw in strong if kw and _phrase_in(kw, title)]
-    if len(strong_hits) >= 2:
-        return 0.75, f"strong keyword matches: {strong_hits}"
+    if len(strong_hits) >= ladder.strong_keyword_multiple_min_hits:
+        return ladder.strong_keyword_multiple, f"strong keyword matches: {strong_hits}"
     if len(strong_hits) == 1:
-        return 0.50, f"strong keyword match: {strong_hits[0]!r}"
+        return ladder.strong_keyword_single, f"strong keyword match: {strong_hits[0]!r}"
 
     if _any_phrase_in(weak, body):
         match = _any_phrase_in(weak, body)
-        return 0.30, f"weak keyword match: {match!r}"
+        return ladder.weak_keyword, f"weak keyword match: {match!r}"
 
-    return 0.0, "no role keyword match"
+    return ladder.no_match, "no role keyword match"
 
 
 def score_seniority(listing: RawListing, criteria: dict) -> tuple[float, str]:
@@ -258,7 +472,9 @@ def score_seniority(listing: RawListing, criteria: dict) -> tuple[float, str]:
     return float(fallback_score), "no seniority qualifier found"
 
 
-def score_location_remote(listing: RawListing, criteria: dict) -> tuple[float, str]:
+def score_location_remote(
+    listing: RawListing, criteria: dict, config: ScoringConfig
+) -> tuple[float, str]:
     """
     0.0 – 1.0 for location/remote compatibility.
 
@@ -272,6 +488,7 @@ def score_location_remote(listing: RawListing, criteria: dict) -> tuple[float, s
     location is given or nothing matches.
     """
     loc_cfg = criteria.get("location_remote", {})
+    ladder = config.acceptable_location_ladder
     patterns = loc_cfg.get("patterns", [])
     fallback = float(loc_cfg.get("fallback_score", 0.50))
     acceptable = [p.lower() for p in loc_cfg.get("acceptable_onsite_locations", [])]
@@ -284,10 +501,10 @@ def score_location_remote(listing: RawListing, criteria: dict) -> tuple[float, s
     # Acceptable onsite location takes priority over generic pattern matching
     if any(place in loc for place in acceptable):
         if "remote" in loc:
-            return 1.0, f"remote in acceptable location ({listing.location})"
+            return ladder.remote, f"remote in acceptable location ({listing.location})"
         if "hybrid" in loc:
-            return 0.85, f"hybrid in acceptable location ({listing.location})"
-        return 0.75, f"onsite in acceptable location ({listing.location})"
+            return ladder.hybrid, f"hybrid in acceptable location ({listing.location})"
+        return ladder.onsite, f"onsite in acceptable location ({listing.location})"
 
     # Generic pattern matching (checked in YAML order; first match wins)
     for pattern in patterns:
@@ -299,7 +516,9 @@ def score_location_remote(listing: RawListing, criteria: dict) -> tuple[float, s
     return fallback, f"location '{listing.location}' — remote status unclear"
 
 
-def score_tech_stack(listing: RawListing, criteria: dict) -> tuple[float, str]:
+def score_tech_stack(
+    listing: RawListing, criteria: dict, config: ScoringConfig
+) -> tuple[float, str]:
     """
     0.0 – 1.0 for tech keyword overlap with the candidate's stack.
 
@@ -312,7 +531,7 @@ def score_tech_stack(listing: RawListing, criteria: dict) -> tuple[float, str]:
     """
     ts = criteria.get("tech_stack", {})
     keywords: list[str] = ts.get("keywords", [])
-    floor = float(ts.get("zero_match_floor", 0.20))
+    floor = float(config.tech_stack_ladder.zero_match_floor)
 
     if not keywords:
         return floor, "no tech keywords defined"
@@ -329,7 +548,9 @@ def score_tech_stack(listing: RawListing, criteria: dict) -> tuple[float, str]:
     return floor, "no tech keywords matched (floor applied)"
 
 
-def score_avoid_penalty(listing: RawListing, criteria: dict) -> tuple[float, str]:
+def score_avoid_penalty(
+    listing: RawListing, criteria: dict, config: ScoringConfig
+) -> tuple[float, str]:
     """
     0.0 – 1.0 where lower means more avoid-role overlap.
 
@@ -340,17 +561,18 @@ def score_avoid_penalty(listing: RawListing, criteria: dict) -> tuple[float, str
       nothing matched                  → 1.0 (clean)
     """
     avoid = criteria.get("avoid", {})
+    ladder = config.avoid_penalty_ladder
     hard: list[str] = avoid.get("hard_disqualify", [])
     soft: list[str] = avoid.get("soft_penalise", [])
     title = listing.title
 
     if matched := _any_phrase_in(hard, title):
-        return 0.2, f"hard avoid phrase in title: {matched!r}"
+        return ladder.hard_title, f"hard avoid phrase in title: {matched!r}"
 
     if matched := _any_phrase_in(soft, title):
-        return 0.6, f"soft avoid keyword in title: {matched!r}"
+        return ladder.soft_title, f"soft avoid keyword in title: {matched!r}"
 
-    return 1.0, "no avoid keywords"
+    return ladder.clean, "no avoid keywords"
 
 
 # ---------------------------------------------------------------------------
@@ -386,7 +608,10 @@ def score_listing(
 
     criterion_scores: dict[str, CriterionScore] = {}
     for name, fn, weight in scorers:
-        raw, reason_str = fn(listing, criteria)
+        if name == "seniority":
+            raw, reason_str = fn(listing, criteria)
+        else:
+            raw, reason_str = fn(listing, criteria, config)
         criterion_scores[name] = CriterionScore(weight, raw, raw * weight, reason_str)
 
     # Semantic fit — only runs when a scorer is attached and weight > 0
@@ -417,6 +642,7 @@ def score_listing(
             listing.salary_hint,
             criteria.get("compensation", {}),
             config.tolerances.salary_below_min_tolerance_pct,
+            config.salary_adjustments.below_min_penalty,
         )
         if penalty:
             total *= (1.0 - penalty)
@@ -424,9 +650,14 @@ def score_listing(
     return ScoredListing(listing, criterion_scores, round(total, 4))
 
 
-def _salary_penalty(hint: str, compensation: dict, tolerance_pct: float) -> float:
+def _salary_penalty(
+    hint: str,
+    compensation: dict,
+    tolerance_pct: float,
+    below_min_penalty: float,
+) -> float:
     """
-    Return a fractional penalty (0.0–0.15) if the salary hint is detectably
+    Return a fractional penalty if the salary hint is detectably
     below the minimum after the tolerance band. Returns 0.0 if unparseable
     or if the currency doesn't match (we don't do cross-currency conversion).
     """
@@ -448,7 +679,7 @@ def _salary_penalty(hint: str, compensation: dict, tolerance_pct: float) -> floa
 
     floor = minimum * (1.0 - tolerance_pct)
     if value < floor:
-        return 0.15
+        return below_min_penalty
     return 0.0
 
 

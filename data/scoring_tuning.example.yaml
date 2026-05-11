@@ -1,0 +1,65 @@
+# User-adjustable scoring tuning.
+#
+# Copy this file to data/scoring_tuning.yaml and edit values there:
+#
+#   cp data/scoring_tuning.example.yaml data/scoring_tuning.yaml
+#
+# This file controls numeric weights, thresholds, score ladders, and penalties.
+# It intentionally does not contain personal profile content, role keywords, or
+# portal/search sources. Those live in data/profile.yaml, data/portals.yaml, and
+# generated data/scoring_criteria.yaml.
+#
+# Merge order at runtime:
+#   1. built-in defaults
+#   2. generated data/scoring_criteria.yaml
+#   3. data/scoring_tuning.yaml overrides
+
+# Relative importance of each rule-score dimension. Values are used as-is and
+# do not need to add up to 1.0.
+weights:
+  role_fit: 0.40
+  seniority: 0.20
+  location_remote: 0.15
+  tech_stack: 0.15
+  avoid_penalty: 0.10
+  semantic_fit: 0.00
+
+# Funnel thresholds and override behavior.
+tolerances:
+  min_score_threshold: 0.35
+  top_n_for_llm: 100
+  salary_below_min_tolerance_pct: 0.10
+  location_override_role_fit: 0.80
+  min_title_keyword_hits: 1
+
+# Raw score ladders before weights are applied.
+score_ladders:
+  role_fit:
+    exact_archetype: 1.00
+    strong_keyword_multiple: 0.75
+    strong_keyword_single: 0.50
+    strong_keyword_multiple_min_hits: 2
+    weak_keyword: 0.30
+    no_match: 0.00
+
+  acceptable_location:
+    remote: 1.00
+    hybrid: 0.85
+    onsite: 0.75
+
+  avoid:
+    hard_title: 0.20
+    soft_title: 0.60
+    clean: 1.00
+
+  tech_stack:
+    # Used when no tech keywords are visible or descriptions have not been fetched.
+    zero_match_floor: 0.20
+
+# Post-score multipliers and reductions.
+adjustments:
+  salary:
+    # Fraction removed from total score when salary is parseable, currency matches,
+    # and the listed salary is below the tolerated minimum.
+    below_min_penalty: 0.15
+

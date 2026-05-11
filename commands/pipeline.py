@@ -10,6 +10,9 @@ Runs all stages in sequence:
   6. analyze_remaining_positions — LLM quick evaluation of top N
   7. generate_reports            — display table + write detailed markdown reports
 
+Numeric scoring tuning is loaded from data/scoring_tuning.yaml during the scan
+stage and overrides generated criteria values.
+
 Each stage stores its output on the Pipeline instance so the next stage can
 read it. Stages can be skipped or overridden by calling them individually.
 """
@@ -24,11 +27,13 @@ from rich.console import Console
 
 from classify.llm import DEFAULT_LLM_CONCURRENCY, LLMEvaluation, batch_evaluate
 from classify.rules import (
+    DEFAULT_TUNING_PATH,
     RawListing,
     ScoredListing,
     ScoringConfig,
     config_from_criteria,
     load_criteria,
+    load_tuning_config,
     passes_hard_rules,
     rank_and_narrow,
     score_listing,
@@ -69,6 +74,7 @@ class ReportsPipeline:
         self.cv_text: str = ""
         self.profile_text: str = ""
         self.criteria: dict = {}
+        self.tuning: dict = {}
         self.config: ScoringConfig = ScoringConfig()
         self.portals_config: dict = {}
         self.raw_listings: list[RawListing] = []
@@ -122,11 +128,19 @@ class ReportsPipeline:
     # Stage 3
     # -------------------------------------------------------------------------
 
-    def scan_for_jobs(self, portals_path: Path = PORTALS_PATH) -> ReportsPipeline:
+    def scan_for_jobs(
+        self,
+        portals_path: Path = PORTALS_PATH,
+        tuning_path: Path = DEFAULT_TUNING_PATH,
+    ) -> ReportsPipeline:
         """Fetch raw job listings from all enabled portals.yaml sources."""
         self.portals_config = load_portals_config(portals_path)
         self.criteria = apply_portals_title_filter(self.criteria, self.portals_config)
-        self.config = config_from_criteria(self.criteria)
+        self.tuning = load_tuning_config(
+            tuning_path,
+            required=tuning_path != DEFAULT_TUNING_PATH,
+        )
+        self.config = config_from_criteria(self.criteria, self.tuning)
         console.print("[bold cyan]Stage 3/7:[/] Scanning job boards...")
         self.raw_listings = ingest_all(self.portals_config)
         # Candidates start as the full raw list; eliminate_irrelevant_jobs narrows them.
@@ -307,13 +321,14 @@ def build_reports_pipeline(
     detailed_top_n: int | None = None,
     min_report_score: int = 5,
     reports_dir: Path = REPORTS_DIR,
+    tuning_path: Path = DEFAULT_TUNING_PATH,
 ) -> None:
     """Run the full end-to-end pipeline and write detailed markdown job reports."""
     (
         ReportsPipeline()
         .read_profile_and_cv()
         .generate_criteria()
-        .scan_for_jobs()
+        .scan_for_jobs(tuning_path=tuning_path)
         .eliminate_irrelevant_jobs()
         .score_relevant_positions()
         .analyze_remaining_positions(
@@ -374,6 +389,14 @@ def build_reports_pipeline(
     help="Directory to write detailed markdown reports into.",
 )
 @click.option(
+    "--tuning-config",
+    "tuning_path",
+    default=str(DEFAULT_TUNING_PATH),
+    show_default=True,
+    type=click.Path(),
+    help="Path to scoring_tuning.yaml with user-adjustable numeric weights and score ladders.",
+)
+@click.option(
     "--min-report-score",
     default=5,
     show_default=True,
@@ -387,6 +410,7 @@ def pipeline_command(
     no_cache: bool,
     reports_top_n: int | None,
     reports_dir: str,
+    tuning_path: str,
     min_report_score: int,
 ) -> None:
     """Run the full job-report pipeline end-to-end."""
@@ -398,4 +422,5 @@ def pipeline_command(
         detailed_top_n=reports_top_n,
         min_report_score=min_report_score,
         reports_dir=Path(reports_dir),
+        tuning_path=Path(tuning_path),
     )
