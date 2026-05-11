@@ -12,9 +12,12 @@ defines what matters for this candidate. Never add personal preferences here.
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import yaml
+
+if TYPE_CHECKING:
+    from classify.semantic import SemanticScorer
 
 
 CRITERIA_PATH = Path("data/scoring_criteria.yaml")
@@ -64,6 +67,7 @@ class ScoringWeights:
     location_remote: float = 0.15
     tech_stack: float = 0.15
     avoid_penalty: float = 0.10
+    semantic_fit: float = 0.0   # disabled by default; set in criteria YAML to enable
 
 
 @dataclass
@@ -79,6 +83,7 @@ class ScoringTolerances:
 class ScoringConfig:
     weights: ScoringWeights = field(default_factory=ScoringWeights)
     tolerances: ScoringTolerances = field(default_factory=ScoringTolerances)
+    semantic_scorer: Optional["SemanticScorer"] = None
 
 
 def load_criteria(path: Path = CRITERIA_PATH) -> dict:
@@ -101,6 +106,7 @@ def config_from_criteria(criteria: dict) -> ScoringConfig:
             location_remote=w.get("location_remote", 0.15),
             tech_stack=w.get("tech_stack", 0.15),
             avoid_penalty=w.get("avoid_penalty", 0.10),
+            semantic_fit=w.get("semantic_fit", 0.0),
         ),
         tolerances=ScoringTolerances(
             min_score_threshold=t.get("min_score_threshold", 0.25),
@@ -382,6 +388,12 @@ def score_listing(
     for name, fn, weight in scorers:
         raw, reason_str = fn(listing, criteria)
         criterion_scores[name] = CriterionScore(weight, raw, raw * weight, reason_str)
+
+    # Semantic fit — only runs when a scorer is attached and weight > 0
+    if config.semantic_scorer is not None and config.weights.semantic_fit > 0:
+        weight = config.weights.semantic_fit
+        raw, reason_str = config.semantic_scorer.score(listing)
+        criterion_scores["semantic_fit"] = CriterionScore(weight, raw, raw * weight, reason_str)
 
     # Location override: strong role fit forgives a weak location score
     loc_floor = float(

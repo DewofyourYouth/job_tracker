@@ -69,12 +69,18 @@ emit the values.
 - role_fit.exact_archetypes: copy from profile.target_roles.primary and all \
 profile.target_roles.archetypes[].name values where fit == "primary".
 
-- role_fit.strong_keywords: extract the 2–3 word noun phrases that appear most \
-frequently across the exact_archetypes list (e.g., "Platform Engineer", \
-"Backend Engineer"). Include only phrases that a job title would realistically contain.
+- role_fit.strong_keywords: 2–4 word noun phrases that are specific enough to \
+discriminate the candidate's target roles from generic engineering jobs. A phrase \
+qualifies ONLY if it appears in 2 or more exact_archetypes, OR is a specialised \
+compound that rarely appears outside the target domain (e.g., "Platform Engineer", \
+"Infrastructure Engineer", "Developer Platform", "Internal Tools"). Do NOT include \
+generic phrases such as "Backend Engineer" or "Software Engineer" — those match \
+thousands of unrelated postings and belong in weak_keywords instead. Keep this list \
+short (2–5 items).
 
-- role_fit.weak_keywords: single words that are a weaker positive signal \
-(e.g., "Engineer", "Backend", "Infrastructure"). Keep this list short (3–6 items).
+- role_fit.weak_keywords: single words or short phrases that are a weak positive \
+signal (e.g., "Backend", "Infrastructure", "Backend Engineer"). These fire when \
+nothing stronger matched. Keep this list to 3–6 items.
 
 - seniority.target_level: the level field from profile.target_roles.archetypes \
 (e.g., "Senior"). level_scores: use schema defaults unless the profile implies \
@@ -212,9 +218,9 @@ def validate_criteria(parsed: dict) -> list[str]:
 )
 @click.option(
     "--model",
-    default="gpt-4o-mini",
+    default="gpt-4o",
     show_default=True,
-    help="OpenAI model to use. Use gpt-4o for richer extraction.",
+    help="OpenAI model to use. gpt-4o is recommended for richer extraction.",
 )
 @click.option(
     "--dry-run",

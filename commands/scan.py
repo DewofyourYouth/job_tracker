@@ -20,6 +20,7 @@ Full pipeline:
 
 
 
+import csv
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,6 +32,7 @@ from rich.table import Table
 
 from classify.llm import LLMEvaluation, batch_evaluate
 from classify.rules import (
+    RawListing,
     ScoredListing,
     ScoringConfig,
     ScoringTolerances,
@@ -45,6 +47,59 @@ from injest.job_boards import fetch_description, ingest_all, load_portals_config
 console = Console()
 
 CRITERIA_PATH = Path("data/scoring_criteria.yaml")
+LISTINGS_CSV_PATH = Path("data/listings.csv")
+_CSV_FIELDS = ["Company", "Job Title", "Url", "Description", "Date Posted", "Score", "Report Path"]
+
+
+def upsert_listings_csv(
+    *,
+    raw: list[RawListing] | None = None,
+    evaluated: list[tuple[ScoredListing, LLMEvaluation]] | None = None,
+    report_paths: dict[str, str] | None = None,
+    csv_path: Path = LISTINGS_CSV_PATH,
+) -> None:
+    """Upsert job listing data into the CSV. URL is the dedup key.
+
+    Call with any combination of inputs — only the fields each source knows
+    about are written; existing values for other fields are preserved.
+    """
+    rows: dict[str, dict] = {}
+    if csv_path.exists():
+        with csv_path.open(newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                rows[row.get("Url", "")] = dict(row)
+
+    def _ensure(url: str, company: str, title: str) -> None:
+        if url not in rows:
+            rows[url] = {f: "" for f in _CSV_FIELDS}
+            rows[url]["Company"] = company
+            rows[url]["Job Title"] = title
+            rows[url]["Url"] = url
+
+    if raw:
+        for listing in raw:
+            _ensure(listing.url, listing.company, listing.title)
+            if listing.description and not rows[listing.url].get("Description"):
+                rows[listing.url]["Description"] = listing.description[:200]
+
+    if evaluated:
+        for scored, evaluation in evaluated:
+            url = scored.listing.url
+            _ensure(url, scored.listing.company, scored.listing.title)
+            rows[url]["Score"] = str(evaluation.fit_score)
+
+    if report_paths:
+        for url, path in report_paths.items():
+            if url in rows:
+                rows[url]["Report Path"] = path
+
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    with csv_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=_CSV_FIELDS, quoting=csv.QUOTE_ALL)
+        writer.writeheader()
+        writer.writerows(rows.values())
+
+    console.print(f"  [dim]listings.csv updated ({len(rows)} entries)[/]")
 
 # Expose default values for help text only — actual defaults come from YAML.
 _W = ScoringWeights()
@@ -77,7 +132,7 @@ _T = ScoringTolerances()
               help="Fetch full job descriptions before LLM evaluation (slower, better quality).")
 @click.option("--skip-llm/--no-skip-llm", default=False,
               help="Stop after rule scoring. Useful for tuning weights without spending tokens.")
-@click.option("--llm-model",  default="gpt-4o-mini", show_default=True,
+@click.option("--llm-model",  default="gpt-4o", show_default=True,
               help="OpenAI model to use for evaluation.")
 @click.option("--no-cache",   is_flag=True, default=False,
               help="Ignore disk cache and re-evaluate all listings via API.")
@@ -156,8 +211,11 @@ def scan_command(
         f"[red]{len(disqualified)}[/] disqualified"
     )
 
+    # Write all listings that survived scoring to the CSV.
+    survived_cut = [s for s in rest if not s.disqualified]
+    upsert_listings_csv(raw=[s.listing for s in top + survived_cut])
+
     if fetch_descriptions and top:
-        console.print("  Fetching descriptions for top listings...")
         for i, s in enumerate(top):
             try:
                 updated_listing = fetch_description(s.listing)
@@ -180,6 +238,7 @@ def scan_command(
     client = OpenAI()
     evaluated = batch_evaluate(client, top, criteria, model=llm_model, use_cache=not no_cache)
     display_results(evaluated)
+    upsert_listings_csv(evaluated=evaluated)
 
     if output_json:
         write_json_output(evaluated, config, Path(output_json))

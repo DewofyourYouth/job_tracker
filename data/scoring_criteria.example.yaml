@@ -29,7 +29,7 @@ weights:
 # Tolerances — thresholds that control the funnel width.
 # ---------------------------------------------------------------------------
 tolerances:
-  min_score_threshold: 0.25 # Listings below this are discarded before LLM.
+  min_score_threshold: 0.35 # Listings below this are discarded before LLM.
   top_n_for_llm: 20 # Max listings forwarded to LLM evaluation.
   salary_below_min_tolerance_pct: 0.10 # 10% below min salary is still acceptable.
   location_override_role_fit: 0.80 # A role_fit this high forgives a location mismatch.
@@ -47,19 +47,21 @@ role_fit:
     - "Senior Platform Engineer"
     - "Senior Backend Engineer"
 
-  # Individual words/phrases that are strong positive signals.
-  # At least 2 matched → score 0.75; 1 matched → score 0.5
+  # Specialised phrases (2+ words) specific enough to discriminate target roles
+  # from generic engineering jobs. Only include phrases that appear in 2+ archetypes
+  # OR are highly domain-specific. Do NOT put generic phrases like "Backend Engineer"
+  # here — they match too broadly. At least 2 matched → score 0.75; 1 matched → score 0.5
   strong_keywords:
     - "Platform Engineer"
-    - "Backend Engineer"
     - "Infrastructure Engineer"
     - "Developer Platform"
     - "Internal Tools"
 
-  # Weaker signals — present in description only or generic titles.
+  # Weaker signals — broad phrases or single words that fire when nothing stronger matched.
+  # Includes phrases too generic for strong_keywords (e.g., "Backend Engineer").
   # Match → score 0.3
   weak_keywords:
-    - "Engineer"
+    - "Backend Engineer"
     - "Backend"
     - "Platform"
 

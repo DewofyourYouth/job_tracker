@@ -7,8 +7,7 @@ We only call the API for listings that survived the rules filter and
 ranked in the top N. Each listing gets one API call; results are cached
 by URL so re-runs don't re-spend tokens on listings we've already seen.
 
-Model: gpt-4o-mini by default (cheap, fast, good enough for fit scoring).
-Upgrade to gpt-4o for nuanced evaluation of borderline listings.
+Model: gpt-4o by default (flagship model for high-quality fit scoring).
 """
 
 
@@ -50,7 +49,7 @@ def build_system_prompt() -> str:
         "\n"
         "SCORING RUBRIC (fit_score 1–10):\n"
         "  9–10  Exceptional match — candidate should prioritise this.\n"
-        "  7–8   Good match — worth applying.\n"
+        "  7–8   Good match OR strong wildcard/pivot opportunity.\n"
         "  5–6   Mixed signals — apply only if pipeline is thin.\n"
         "  1–4   Poor fit — skip.\n"
         "\n"
@@ -68,6 +67,11 @@ def build_system_prompt() -> str:
         "- Flag as red flags: visa sponsorship requirements, severe stack mismatch,\n"
         "  ops/admin-heavy roles, explicit on-site in non-preferred location,\n"
         "  compensation clearly below candidate minimum.\n"
+        "- WILDCARD POTENTIAL: Be open to non-obvious fits. If the role requires \n"
+        "  skills the candidate doesn't explicitly have, but they are clearly a \n"
+        "  strong engineer who could adapt, or if the role sounds like an \n"
+        "  interesting pivot that leverages their core strengths, boost the \n"
+        "  fit_score and note it as a 'wildcard' strength.\n"
         "- Do not repeat the candidate profile back verbatim.\n"
         "- Output only the JSON object, no surrounding prose."
     )
@@ -163,7 +167,7 @@ def evaluate_listing(
     scored: ScoredListing,
     criteria: dict,
     *,
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-4o",
     use_cache: bool = True,
 ) -> LLMEvaluation:
     """
@@ -225,7 +229,7 @@ def batch_evaluate(
     top_listings: list[ScoredListing],
     criteria: dict,
     *,
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-4o",
     use_cache: bool = True,
 ) -> list[tuple[ScoredListing, LLMEvaluation]]:
     """

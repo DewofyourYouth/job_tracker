@@ -5,3 +5,4 @@ data/scoring_criteria.yaml
 .env
 .job_tracker/
 **.pyc
+output
