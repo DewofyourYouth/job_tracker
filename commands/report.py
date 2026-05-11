@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -310,19 +311,39 @@ def render_report_markdown(report: DetailedReport) -> str:
 """.strip()
 
 
-def _safe_filename(title: str, company: str) -> str:
-    """Turn a job title + company into a safe filename."""
+def _safe_stem(title: str, company: str) -> str:
+    """Turn a job title + company into a safe filename stem."""
     raw = f"{company}-{title}".lower()
-    clean = re.sub(r"[^a-z0-9]+", "-", raw).strip("-")
-    return clean[:80] + ".md"
+    return re.sub(r"[^a-z0-9]+", "-", raw).strip("-")[:80]
+
+
+def _legacy_report_path(title: str, company: str, output_dir: Path) -> Path:
+    return output_dir / f"{_safe_stem(title, company)}.md"
+
+
+def _url_report_path(title: str, company: str, url: str, output_dir: Path) -> Path:
+    url_hash = hashlib.sha256(url.encode()).hexdigest()[:8]
+    return output_dir / f"{_safe_stem(title, company)}-{url_hash}.md"
+
+
+def report_path_for_listing(scored: ScoredListing, output_dir: Path = REPORTS_DIR) -> Path:
+    """Return the canonical report path for a listing, preserving matching legacy files."""
+    listing = scored.listing
+    legacy_path = _legacy_report_path(listing.title, listing.company, output_dir)
+    if legacy_path.exists():
+        try:
+            if listing.url in legacy_path.read_text(encoding="utf-8"):
+                return legacy_path
+        except OSError:
+            pass
+    return _url_report_path(listing.title, listing.company, listing.url, output_dir)
 
 
 def write_report_to_disk(report: DetailedReport, output_dir: Path = REPORTS_DIR) -> Path:
     """Write a DetailedReport as a markdown file and return the path."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    filename = _safe_filename(report.title, report.company)
-    path = output_dir / filename
-    path.write_text(render_report_markdown(report))
+    path = _url_report_path(report.title, report.company, report.listing_url, output_dir)
+    path.write_text(render_report_markdown(report), encoding="utf-8")
     return path
 
 
@@ -338,25 +359,37 @@ def batch_generate_reports(
     profile_text: str,
     *,
     model: str = "gpt-4o",
-    top_n: int = 5,
+    top_n: int | None = None,
     min_llm_score: int = 5,
     output_dir: Path = REPORTS_DIR,
-) -> list[Path]:
+    overwrite_existing: bool = False,
+) -> dict[str, Path]:
     """
-    Generate detailed markdown reports for the top N evaluated listings.
+    Generate detailed markdown reports for evaluated listings above the score floor.
 
     Only generates reports for listings with fit_score >= min_llm_score (default 5).
-    Returns a list of paths to the written report files.
+    Returns a URL -> report path mapping for generated or reused report files.
     """
-    targets = [pair for pair in evaluated[:top_n] if pair[1].fit_score >= min_llm_score]
+    report_pool = evaluated if top_n is None else evaluated[:top_n]
+    targets = [pair for pair in report_pool if pair[1].fit_score >= min_llm_score]
     if not targets:
         console.print(
             f"  [yellow]No listings scored ≥ {min_llm_score}/10 — skipping detailed reports.[/]"
         )
-        return []
-    paths: list[Path] = []
+        return {}
+    paths: dict[str, Path] = {}
 
     for i, (scored, evaluation) in enumerate(targets, 1):
+        existing_path = report_path_for_listing(scored, output_dir)
+        if existing_path.exists() and not overwrite_existing:
+            paths[scored.listing.url] = existing_path
+            console.print(
+                f"  Reusing report {i}/{len(targets)}: "
+                f"[bold]{scored.listing.title}[/] @ {scored.listing.company} "
+                f"([dim]{existing_path}[/])"
+            )
+            continue
+
         console.print(
             f"  Generating report {i}/{len(targets)}: "
             f"[bold]{scored.listing.title}[/] @ {scored.listing.company}..."
@@ -372,7 +405,7 @@ def batch_generate_reports(
                 model=model,
             )
             path = write_report_to_disk(report, output_dir)
-            paths.append(path)
+            paths[scored.listing.url] = path
             console.print(f"    [green]✓[/] Written to [bold]{path}[/]")
         except Exception as exc:
             console.print(

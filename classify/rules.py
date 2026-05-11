@@ -73,7 +73,7 @@ class ScoringWeights:
 @dataclass
 class ScoringTolerances:
     min_score_threshold: float = 0.25
-    top_n_for_llm: int = 20
+    top_n_for_llm: int = 100
     salary_below_min_tolerance_pct: float = 0.10
     location_override_role_fit: float = 0.80
     min_title_keyword_hits: int = 1
@@ -110,7 +110,7 @@ def config_from_criteria(criteria: dict) -> ScoringConfig:
         ),
         tolerances=ScoringTolerances(
             min_score_threshold=t.get("min_score_threshold", 0.25),
-            top_n_for_llm=t.get("top_n_for_llm", 20),
+            top_n_for_llm=t.get("top_n_for_llm", 100),
             salary_below_min_tolerance_pct=t.get("salary_below_min_tolerance_pct", 0.10),
             location_override_role_fit=t.get("location_override_role_fit", 0.80),
             min_title_keyword_hits=t.get("min_title_keyword_hits", 1),

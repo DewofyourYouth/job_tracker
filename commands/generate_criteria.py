@@ -32,6 +32,7 @@ CV_PATH = Path("data/cv.md")
 PROFILE_PATH = Path("data/profile.yaml")
 DEFAULT_OUTPUT = Path("data/scoring_criteria.yaml")
 EXAMPLE_PATH = Path("data/scoring_criteria.example.yaml")
+PORTALS_PATH = Path("data/portals.yaml")
 REQUIRED_KEYS = [
     "weights", "tolerances", "role_fit",
     "seniority", "location_remote", "tech_stack", "avoid", "compensation",
@@ -116,13 +117,23 @@ provided as context, copy title_filter.positive and title_filter.negative verbat
 """
 
 
-def build_user_message(cv_text: str, profile_text: str) -> str:
+def build_user_message(
+    cv_text: str,
+    profile_text: str,
+    portals_title_filter: dict | None = None,
+) -> str:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    return (
+    message = (
         f"generated_at: {now}\n\n"
         f"--- CV (Markdown) ---\n{cv_text}\n\n"
         f"--- Profile (YAML) ---\n{profile_text}\n"
     )
+    if portals_title_filter:
+        message += (
+            "\n--- portals.yaml title_filter context ---\n"
+            f"{yaml.dump({'title_filter': portals_title_filter}, allow_unicode=True, sort_keys=False)}"
+        )
+    return message
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +159,16 @@ def inject_meta(raw_yaml: str, generated_at: str) -> str:
     parsed.setdefault("meta", {})
     parsed["meta"]["generated_at"] = generated_at
     parsed["meta"]["source_files"] = ["data/cv.md", "data/profile.yaml"]
+    return yaml.dump(parsed, allow_unicode=True, sort_keys=False)
+
+
+def inject_title_filter(raw_yaml: str, title_filter: dict | None) -> str:
+    """Ensure generated criteria preserves the portal title filter when provided."""
+    if not title_filter:
+        return raw_yaml
+    parsed = yaml.safe_load(raw_yaml)
+    if not parsed.get("title_filter"):
+        parsed["title_filter"] = title_filter
     return yaml.dump(parsed, allow_unicode=True, sort_keys=False)
 
 
@@ -217,6 +238,13 @@ def validate_criteria(parsed: dict) -> list[str]:
     help="Path to your profile.yaml file.",
 )
 @click.option(
+    "--portals", "portals_path",
+    default=str(PORTALS_PATH),
+    show_default=True,
+    type=click.Path(exists=True),
+    help="Path to portals.yaml; its title_filter is copied into generated criteria.",
+)
+@click.option(
     "--model",
     default="gpt-4o",
     show_default=True,
@@ -238,6 +266,7 @@ def generate_criteria_command(
     output_path: str,
     cv_path: str,
     profile_path: str,
+    portals_path: str,
     model: str,
     dry_run: bool,
     force: bool,
@@ -251,6 +280,8 @@ def generate_criteria_command(
 
     cv_text = Path(cv_path).read_text()
     profile_text = Path(profile_path).read_text()
+    portals_config = yaml.safe_load(Path(portals_path).read_text()) or {}
+    portals_title_filter = portals_config.get("title_filter")
 
     console.print(f"[bold cyan]Generating scoring criteria[/] using [bold]{model}[/]...")
 
@@ -260,13 +291,21 @@ def generate_criteria_command(
         max_tokens=2048,
         messages=[
             {"role": "system", "content": build_system_prompt()},
-            {"role": "user",   "content": build_user_message(cv_text, profile_text)},
+            {
+                "role": "user",
+                "content": build_user_message(
+                    cv_text,
+                    profile_text,
+                    portals_title_filter,
+                ),
+            },
         ],
     )
 
     raw_yaml = strip_fences(response.choices[0].message.content or "")
     generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     final_yaml = inject_meta(raw_yaml, generated_at)
+    final_yaml = inject_title_filter(final_yaml, portals_title_filter)
 
     parsed = yaml.safe_load(final_yaml)
     warns = validate_criteria(parsed)

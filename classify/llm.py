@@ -139,21 +139,43 @@ def build_evaluation_prompt(scored: ScoredListing, criteria: dict) -> str:
 CACHE_DIR = Path("output/llm_cache")
 
 
-def _cache_key(url: str) -> str:
-    return hashlib.sha256(url.encode()).hexdigest()[:16]
+def _cache_key(scored: ScoredListing, criteria: dict, model: str) -> str:
+    """Fingerprint the full evaluation context, not just the listing URL."""
+    listing = scored.listing
+    payload = {
+        "url": listing.url,
+        "title": listing.title,
+        "company": listing.company,
+        "location": listing.location,
+        "salary_hint": listing.salary_hint,
+        "description": listing.description or "",
+        "rule_scores": {
+            name: {
+                "raw_score": c.raw_score,
+                "weighted": c.weighted,
+                "reason": c.reason,
+            }
+            for name, c in scored.criteria.items()
+        },
+        "total_rule_score": scored.total_score,
+        "criteria": criteria,
+        "model": model,
+    }
+    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
-def _load_cached(url: str) -> Optional[LLMEvaluation]:
-    path = CACHE_DIR / f"{_cache_key(url)}.json"
+def _load_cached(scored: ScoredListing, criteria: dict, model: str) -> Optional[LLMEvaluation]:
+    path = CACHE_DIR / f"{_cache_key(scored, criteria, model)}.json"
     if not path.exists():
         return None
     data = json.loads(path.read_text())
     return LLMEvaluation(**data, cached=True)
 
 
-def _save_cached(evaluation: LLMEvaluation) -> None:
+def _save_cached(evaluation: LLMEvaluation, scored: ScoredListing, criteria: dict, model: str) -> None:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    path = CACHE_DIR / f"{_cache_key(evaluation.listing_url)}.json"
+    path = CACHE_DIR / f"{_cache_key(scored, criteria, model)}.json"
     data = {k: v for k, v in evaluation.__dict__.items() if k != "cached"}
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
 
@@ -178,7 +200,7 @@ def evaluate_listing(
     rather than raising — callers always get a result.
     """
     if use_cache:
-        cached = _load_cached(scored.listing.url)
+        cached = _load_cached(scored, criteria, model)
         if cached:
             return cached
 
@@ -216,7 +238,7 @@ def evaluate_listing(
             raw_response=raw,
         )
 
-    _save_cached(evaluation)
+    _save_cached(evaluation, scored, criteria, model)
     return evaluation
 
 

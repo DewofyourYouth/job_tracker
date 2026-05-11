@@ -24,6 +24,7 @@ import csv
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import click
 from openai import OpenAI
@@ -48,12 +49,237 @@ console = Console()
 
 CRITERIA_PATH = Path("data/scoring_criteria.yaml")
 LISTINGS_CSV_PATH = Path("data/listings.csv")
-_CSV_FIELDS = ["Company", "Job Title", "Url", "Description", "Date Posted", "Score", "Report Path"]
+_CSV_FIELDS = [
+    "Company",
+    "Job Title",
+    "Url",
+    "Location",
+    "Department",
+    "Employment Type",
+    "Workplace Type",
+    "Salary",
+    "Description",
+    "Date Posted",
+    "Source",
+    "First Seen",
+    "Last Seen",
+    "Rule Score",
+    "Score",
+    "Recommendation",
+    "Fit Summary",
+    "Strengths",
+    "Red Flags",
+    "Report Path",
+]
+_DESCRIPTION_PREVIEW_CHARS = 500
+
+
+def apply_portals_title_filter(criteria: dict, portals_config: dict) -> dict:
+    """Use portals.yaml title_filter when generated criteria omitted it.
+
+    Criteria generation predates the broader portal-level filter in some local
+    files. Without this merge, the hard title gate falls back to role_fit terms,
+    which is intentionally narrow and can discard good adjacent roles before
+    scoring.
+    """
+    if criteria.get("title_filter"):
+        return criteria
+
+    title_filter = portals_config.get("title_filter")
+    if not title_filter:
+        return criteria
+
+    merged = dict(criteria)
+    merged["title_filter"] = title_filter
+    console.print("  [dim]Using title_filter from portals.yaml.[/]")
+    return merged
+
+
+def _blank_csv_row() -> dict[str, str]:
+    return {field: "" for field in _CSV_FIELDS}
+
+
+def _format_csv_value(value: Any) -> str:
+    """Convert heterogeneous ATS values into a readable single CSV cell."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        return " ".join(value.split())
+    if isinstance(value, list):
+        parts = [_format_csv_value(item) for item in value]
+        return "; ".join(part for part in parts if part)
+    if isinstance(value, dict):
+        for key in (
+            "name",
+            "title",
+            "text",
+            "label",
+            "value",
+            "displayName",
+            "description",
+            "summary",
+        ):
+            if key in value:
+                text = _format_csv_value(value[key])
+                if text:
+                    return text
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return str(value)
+
+
+def _first_nonempty(*values: Any) -> str:
+    for value in values:
+        text = _format_csv_value(value)
+        if text:
+            return text
+    return ""
+
+
+def _format_posted_date(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (int, float)):
+        timestamp = float(value) / 1000 if value > 10_000_000_000 else float(value)
+        try:
+            return datetime.fromtimestamp(timestamp, timezone.utc).date().isoformat()
+        except (OverflowError, OSError, ValueError):
+            return _format_csv_value(value)
+
+    text = _format_csv_value(value)
+    if len(text) >= 10 and text[4:5] == "-" and text[7:8] == "-":
+        return text[:10]
+    return text
+
+
+def _extract_posted_date(raw: dict) -> str:
+    for key in (
+        "published_at",
+        "publishedAt",
+        "publishedDate",
+        "published_on",
+        "datePosted",
+        "date_posted",
+        "created_at",
+        "createdAt",
+        "created",
+        "firstPublished",
+        "openedAt",
+        "updated_at",
+        "updatedAt",
+    ):
+        if key in raw:
+            text = _format_posted_date(raw[key])
+            if text:
+                return text
+    return ""
+
+
+def _extract_department(raw: dict) -> str:
+    categories = raw.get("categories") if isinstance(raw.get("categories"), dict) else {}
+    return _first_nonempty(
+        raw.get("department"),
+        raw.get("departmentName"),
+        raw.get("department_name"),
+        raw.get("team"),
+        raw.get("teamName"),
+        raw.get("team_name"),
+        categories.get("department"),
+        categories.get("team"),
+        raw.get("departments"),
+        raw.get("teams"),
+    )
+
+
+def _extract_employment_type(raw: dict) -> str:
+    categories = raw.get("categories") if isinstance(raw.get("categories"), dict) else {}
+    return _first_nonempty(
+        raw.get("employmentType"),
+        raw.get("employment_type"),
+        raw.get("employmentTypeName"),
+        raw.get("workType"),
+        raw.get("worktype"),
+        raw.get("commitment"),
+        categories.get("commitment"),
+    )
+
+
+def _extract_workplace_type(raw: dict) -> str:
+    remote = raw.get("remote")
+    remote_text = "Remote" if remote is True else ""
+    return _first_nonempty(
+        raw.get("workplaceType"),
+        raw.get("workplace_type"),
+        raw.get("workplace"),
+        raw.get("remotePolicy"),
+        remote_text,
+    )
+
+
+def _extract_salary(raw: dict, salary_hint: str | None) -> str:
+    return _first_nonempty(
+        salary_hint,
+        raw.get("salary"),
+        raw.get("salaryRange"),
+        raw.get("salary_range"),
+        raw.get("compensation"),
+        raw.get("compensationTierSummary"),
+        raw.get("payRange"),
+        raw.get("pay_range"),
+        raw.get("baseSalary"),
+    )
+
+
+def _set_csv_value(row: dict[str, str], field: str, value: Any, *, replace: bool = True) -> None:
+    text = _format_csv_value(value)
+    if text and (replace or not row.get(field)):
+        row[field] = text
+
+
+def _description_preview(description: str | None) -> str:
+    text = _format_csv_value(description)
+    return text[:_DESCRIPTION_PREVIEW_CHARS]
+
+
+def _apply_listing_to_row(row: dict[str, str], listing: RawListing, seen_at: str) -> None:
+    raw = listing.raw if isinstance(listing.raw, dict) else {}
+    _set_csv_value(row, "Company", listing.company)
+    _set_csv_value(row, "Job Title", listing.title)
+    _set_csv_value(row, "Url", listing.url)
+    _set_csv_value(row, "Location", listing.location)
+    _set_csv_value(row, "Department", _extract_department(raw))
+    _set_csv_value(row, "Employment Type", _extract_employment_type(raw))
+    _set_csv_value(row, "Workplace Type", _extract_workplace_type(raw))
+    _set_csv_value(row, "Salary", _extract_salary(raw, listing.salary_hint))
+    _set_csv_value(row, "Date Posted", _extract_posted_date(raw))
+    _set_csv_value(row, "Source", listing.source)
+
+    if not row.get("First Seen"):
+        row["First Seen"] = seen_at
+    row["Last Seen"] = seen_at
+
+    preview = _description_preview(listing.description)
+    if preview and len(preview) > len(row.get("Description", "")):
+        row["Description"] = preview
+
+
+def _apply_scored_to_row(row: dict[str, str], scored: ScoredListing, seen_at: str) -> None:
+    _apply_listing_to_row(row, scored.listing, seen_at)
+    row["Rule Score"] = f"{scored.total_score:.4f}"
+
+
+def _join_csv_list(values: list[str]) -> str:
+    parts = [_format_csv_value(value) for value in values]
+    return "; ".join(part for part in parts if part)
 
 
 def upsert_listings_csv(
     *,
     raw: list[RawListing] | None = None,
+    scored: list[ScoredListing] | None = None,
     evaluated: list[tuple[ScoredListing, LLMEvaluation]] | None = None,
     report_paths: dict[str, str] | None = None,
     csv_path: Path = LISTINGS_CSV_PATH,
@@ -63,30 +289,39 @@ def upsert_listings_csv(
     Call with any combination of inputs — only the fields each source knows
     about are written; existing values for other fields are preserved.
     """
+    seen_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     rows: dict[str, dict] = {}
     if csv_path.exists():
         with csv_path.open(newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
-                rows[row.get("Url", "")] = dict(row)
+                url = row.get("Url", "")
+                if url:
+                    rows[url] = {field: row.get(field, "") for field in _CSV_FIELDS}
 
-    def _ensure(url: str, company: str, title: str) -> None:
-        if url not in rows:
-            rows[url] = {f: "" for f in _CSV_FIELDS}
-            rows[url]["Company"] = company
-            rows[url]["Job Title"] = title
-            rows[url]["Url"] = url
+    def _ensure(listing: RawListing) -> dict[str, str]:
+        if listing.url not in rows:
+            rows[listing.url] = _blank_csv_row()
+        _apply_listing_to_row(rows[listing.url], listing, seen_at)
+        return rows[listing.url]
 
     if raw:
         for listing in raw:
-            _ensure(listing.url, listing.company, listing.title)
-            if listing.description and not rows[listing.url].get("Description"):
-                rows[listing.url]["Description"] = listing.description[:200]
+            _ensure(listing)
+
+    if scored:
+        for item in scored:
+            row = _ensure(item.listing)
+            _apply_scored_to_row(row, item, seen_at)
 
     if evaluated:
         for scored, evaluation in evaluated:
-            url = scored.listing.url
-            _ensure(url, scored.listing.company, scored.listing.title)
-            rows[url]["Score"] = str(evaluation.fit_score)
+            row = _ensure(scored.listing)
+            _apply_scored_to_row(row, scored, seen_at)
+            row["Score"] = str(evaluation.fit_score)
+            row["Recommendation"] = evaluation.recommendation
+            row["Fit Summary"] = _format_csv_value(evaluation.fit_summary)
+            row["Strengths"] = _join_csv_list(evaluation.strengths)
+            row["Red Flags"] = _join_csv_list(evaluation.red_flags)
 
     if report_paths:
         for url, path in report_paths.items():
@@ -167,6 +402,8 @@ def scan_command(
     """Scan job boards, score listings, and evaluate top results with LLM."""
 
     criteria = load_criteria(Path(criteria_path))
+    portals_config = load_portals_config(Path(portals_path))
+    criteria = apply_portals_title_filter(criteria, portals_config)
     config = config_from_criteria(criteria)
 
     if weight_role_fit is not None:
@@ -187,8 +424,6 @@ def scan_command(
         config.tolerances.salary_below_min_tolerance_pct = salary_tolerance
     if location_override is not None:
         config.tolerances.location_override_role_fit = location_override
-
-    portals_config = load_portals_config(Path(portals_path))
 
     # -----------------------------------------------------------------------
     # Stage 1: Ingest
@@ -212,8 +447,7 @@ def scan_command(
     )
 
     # Write all listings that survived scoring to the CSV.
-    survived_cut = [s for s in rest if not s.disqualified]
-    upsert_listings_csv(raw=[s.listing for s in top + survived_cut])
+    upsert_listings_csv(scored=top + survived_cut)
 
     if fetch_descriptions and top:
         for i, s in enumerate(top):
@@ -223,6 +457,7 @@ def scan_command(
             except Exception as e:
                 console.print(f"  [yellow]Warning:[/] couldn't fetch description: {e}")
         top.sort(key=lambda s: s.total_score, reverse=True)
+        upsert_listings_csv(scored=top)
 
     # -----------------------------------------------------------------------
     # Stage 3: LLM evaluation

@@ -30,10 +30,25 @@ weights:
 # ---------------------------------------------------------------------------
 tolerances:
   min_score_threshold: 0.35 # Listings below this are discarded before LLM.
-  top_n_for_llm: 20 # Max listings forwarded to LLM evaluation.
+  top_n_for_llm: 100 # Max listings forwarded to LLM evaluation.
   salary_below_min_tolerance_pct: 0.10 # 10% below min salary is still acceptable.
   location_override_role_fit: 0.80 # A role_fit this high forgives a location mismatch.
   min_title_keyword_hits: 1 # Positive title keywords required to proceed.
+
+# ---------------------------------------------------------------------------
+# Title filter — broad hard gate copied from portals.yaml.
+# This should be wider than role_fit so adjacent target roles can be scored.
+# ---------------------------------------------------------------------------
+title_filter:
+  positive:
+    - "Platform Engineer"
+    - "Backend Engineer"
+    - "AI Engineer"
+    - "Forward Deployed"
+    - "Solutions Engineer"
+  negative:
+    - "Junior"
+    - "Intern"
 
 # ---------------------------------------------------------------------------
 # Role fit — what counts as a matching role archetype.

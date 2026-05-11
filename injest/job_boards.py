@@ -345,7 +345,7 @@ def fetch_description(listing: RawListing) -> RawListing:
     Returns the original listing unchanged on any error.
     """
     try:
-        if listing.source.startswith("greenhouse_api:"):
+        if listing.source.startswith("greenhouse_api:") or _greenhouse_job_parts(listing.url):
             return _fetch_greenhouse_description(listing)
         if listing.source.startswith("lever_api:"):
             return _fetch_lever_description(listing)
@@ -357,16 +357,34 @@ def fetch_description(listing: RawListing) -> RawListing:
         return listing
 
 
-def _fetch_greenhouse_description(listing: RawListing) -> RawListing:
-    parsed = urlparse(listing.url)
+def _greenhouse_job_parts(url: str) -> tuple[str, str] | None:
+    parsed = urlparse(url)
+    if "greenhouse.io" not in (parsed.hostname or ""):
+        return None
     parts = parsed.path.strip("/").split("/")
     if len(parts) >= 3 and parts[-2] == "jobs":
-        slug, job_id = parts[0], parts[-1]
+        return parts[0], parts[-1]
+    return None
+
+
+def _fetch_greenhouse_description(listing: RawListing) -> RawListing:
+    job_parts = _greenhouse_job_parts(listing.url)
+    if job_parts:
+        slug, job_id = job_parts
         url = f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs/{job_id}"
         resp = httpx.get(url, headers=_HTTP_HEADERS, timeout=_FETCH_TIMEOUT)
         resp.raise_for_status()
-        html = resp.json().get("content", "")
-        return RawListing(**{**listing.__dict__, "description": _strip_html(html)})
+        data = resp.json()
+        loc = data.get("location") or {}
+        location = loc.get("name") if isinstance(loc, dict) else None
+        html = data.get("content", "")
+        raw = {**listing.raw, **data} if isinstance(listing.raw, dict) else data
+        return RawListing(**{
+            **listing.__dict__,
+            "description": _strip_html(html),
+            "location": location or listing.location,
+            "raw": raw,
+        })
     return listing
 
 

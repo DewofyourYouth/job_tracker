@@ -31,6 +31,7 @@ from classify.rules import (
     load_criteria,
     passes_hard_rules,
     rank_and_narrow,
+    score_listing,
 )
 from commands.generate_criteria import (
     build_system_prompt,
@@ -39,8 +40,13 @@ from commands.generate_criteria import (
     strip_fences,
 )
 from commands.report import REPORTS_DIR, batch_generate_reports
-from commands.scan import display_results, upsert_listings_csv, write_json_output
-from injest.job_boards import ingest_all, load_portals_config
+from commands.scan import (
+    apply_portals_title_filter,
+    display_results,
+    upsert_listings_csv,
+    write_json_output,
+)
+from injest.job_boards import fetch_description, ingest_all, load_portals_config
 
 console = Console()
 
@@ -110,7 +116,6 @@ class ReportsPipeline:
             )
 
         self.criteria = load_criteria(criteria_path)
-        self.config = config_from_criteria(self.criteria)
         return self
 
     # -------------------------------------------------------------------------
@@ -120,6 +125,8 @@ class ReportsPipeline:
     def scan_for_jobs(self, portals_path: Path = PORTALS_PATH) -> ReportsPipeline:
         """Fetch raw job listings from all enabled portals.yaml sources."""
         self.portals_config = load_portals_config(portals_path)
+        self.criteria = apply_portals_title_filter(self.criteria, self.portals_config)
+        self.config = config_from_criteria(self.criteria)
         console.print("[bold cyan]Stage 3/7:[/] Scanning job boards...")
         self.raw_listings = ingest_all(self.portals_config)
         # Candidates start as the full raw list; eliminate_irrelevant_jobs narrows them.
@@ -166,13 +173,14 @@ class ReportsPipeline:
             self.candidates, self.criteria, self.config
         )
         below_threshold = sum(1 for s in self.rest_listings if s.disqualified)
-        survived_cut = len(self.rest_listings) - below_threshold
+        survived_cut = [s for s in self.rest_listings if not s.disqualified]
         console.print(
             f"[bold cyan]Stage 5/7:[/] Rule scoring: "
             f"[green]{len(self.top_listings)}[/] for LLM, "
-            f"[yellow]{survived_cut}[/] surviving cut, "
+            f"[yellow]{len(survived_cut)}[/] surviving cut, "
             f"[red]{below_threshold}[/] below threshold."
         )
+        upsert_listings_csv(scored=self.top_listings + survived_cut)
         return self
 
     # -------------------------------------------------------------------------
@@ -185,6 +193,15 @@ class ReportsPipeline:
         use_cache: bool = True,
     ) -> ReportsPipeline:
         """Quick LLM evaluation of top-N rule-scored listings."""
+        if self.top_listings:
+            console.print("[bold cyan]Stage 6/7:[/] Fetching full postings for LLM context...")
+            enriched: list[ScoredListing] = []
+            for scored in self.top_listings:
+                updated_listing = fetch_description(scored.listing)
+                enriched.append(score_listing(updated_listing, self.criteria, self.config))
+            self.top_listings = sorted(enriched, key=lambda s: s.total_score, reverse=True)
+            upsert_listings_csv(scored=self.top_listings)
+
         console.print(f"[bold cyan]Stage 6/7:[/] LLM evaluation ({model})...")
         client = OpenAI()
         self.evaluated = batch_evaluate(
@@ -204,7 +221,7 @@ class ReportsPipeline:
         self,
         output_json: Path | None = None,
         reports_dir: Path = REPORTS_DIR,
-        detailed_top_n: int = 5,
+        detailed_top_n: int | None = None,
         min_report_score: int = 5,
         report_model: str = "gpt-4o",
     ) -> ReportsPipeline:
@@ -218,7 +235,7 @@ class ReportsPipeline:
         report_paths: dict[str, str] = {}
         if self.evaluated:
             client = OpenAI()
-            paths = batch_generate_reports(
+            paths_by_url = batch_generate_reports(
                 client,
                 self.evaluated,
                 self.criteria,
@@ -230,8 +247,8 @@ class ReportsPipeline:
                 output_dir=reports_dir,
             )
             report_paths = {
-                self.evaluated[i][0].listing.url: str(paths[i])
-                for i in range(len(paths))
+                url: str(path)
+                for url, path in paths_by_url.items()
             }
 
         upsert_listings_csv(evaluated=self.evaluated, report_paths=report_paths)
@@ -284,7 +301,7 @@ def build_reports_pipeline(
     output_json: Path | None = None,
     llm_model: str = "gpt-4o",
     use_cache: bool = True,
-    detailed_top_n: int = 5,
+    detailed_top_n: int | None = None,
     min_report_score: int = 5,
     reports_dir: Path = REPORTS_DIR,
 ) -> None:
@@ -331,9 +348,9 @@ def build_reports_pipeline(
 )
 @click.option(
     "--reports-top-n",
-    default=5,
-    show_default=True,
-    help="Number of top listings to generate detailed markdown reports for.",
+    default=None,
+    type=int,
+    help="Limit detailed markdown reports to the top N LLM-evaluated listings. Default: no cap.",
 )
 @click.option(
     "--reports-dir",
@@ -353,7 +370,7 @@ def pipeline_command(
     output_json: str | None,
     llm_model: str,
     no_cache: bool,
-    reports_top_n: int,
+    reports_top_n: int | None,
     reports_dir: str,
     min_report_score: int,
 ) -> None:
