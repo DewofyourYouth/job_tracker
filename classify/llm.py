@@ -5,7 +5,7 @@ Pipeline position: STAGE 3 (receives top N from rules.rank_and_narrow)
 
 We only call the API for listings that survived the rules filter and
 ranked in the top N. Each listing gets one API call; results are cached
-by URL so re-runs don't re-spend tokens on listings we've already seen.
+by listing context so re-runs don't re-spend tokens on listings we've already seen.
 
 Model: gpt-4o by default (flagship model for high-quality fit scoring).
 """
@@ -14,8 +14,10 @@ Model: gpt-4o by default (flagship model for high-quality fit scoring).
 import hashlib
 import json
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
+from threading import Lock
 from typing import Optional
 
 from openai import OpenAI
@@ -137,6 +139,9 @@ def build_evaluation_prompt(scored: ScoredListing, criteria: dict) -> str:
 # ---------------------------------------------------------------------------
 
 CACHE_DIR = Path("output/llm_cache")
+DEFAULT_LLM_CONCURRENCY = 5
+_CACHE_LOCK = Lock()
+_IndexedEvaluation = tuple[int, ScoredListing, LLMEvaluation]
 
 
 def _cache_key(scored: ScoredListing, criteria: dict, model: str) -> str:
@@ -167,17 +172,19 @@ def _cache_key(scored: ScoredListing, criteria: dict, model: str) -> str:
 
 def _load_cached(scored: ScoredListing, criteria: dict, model: str) -> Optional[LLMEvaluation]:
     path = CACHE_DIR / f"{_cache_key(scored, criteria, model)}.json"
-    if not path.exists():
-        return None
-    data = json.loads(path.read_text())
+    with _CACHE_LOCK:
+        if not path.exists():
+            return None
+        data = json.loads(path.read_text())
     return LLMEvaluation(**data, cached=True)
 
 
 def _save_cached(evaluation: LLMEvaluation, scored: ScoredListing, criteria: dict, model: str) -> None:
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = CACHE_DIR / f"{_cache_key(scored, criteria, model)}.json"
     data = {k: v for k, v in evaluation.__dict__.items() if k != "cached"}
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    with _CACHE_LOCK:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
 
 
 # ---------------------------------------------------------------------------
@@ -246,6 +253,54 @@ def evaluate_listing(
 # Batch evaluation with progress
 # ---------------------------------------------------------------------------
 
+def _evaluation_failure(url: str, exc: Exception) -> LLMEvaluation:
+    return LLMEvaluation(
+        listing_url=url,
+        fit_score=5,
+        fit_summary="Evaluation failed — manual review needed.",
+        strengths=[],
+        red_flags=[f"API error: {exc}"],
+        recommendation="maybe",
+        raw_response="",
+    )
+
+
+def _evaluate_for_batch(
+    client: OpenAI,
+    scored: ScoredListing,
+    criteria: dict,
+    *,
+    model: str,
+    use_cache: bool,
+) -> LLMEvaluation:
+    try:
+        return evaluate_listing(
+            client,
+            scored,
+            criteria,
+            model=model,
+            use_cache=use_cache,
+        )
+    except Exception as exc:
+        warnings.warn(f"LLM evaluation failed for {scored.listing.url}: {exc}")
+        return _evaluation_failure(scored.listing.url, exc)
+
+
+def _with_progress(iterable, *, total: int, desc: str):
+    try:
+        from tqdm import tqdm
+        return tqdm(iterable, total=total, desc=desc)
+    except ImportError:
+        return iterable
+
+
+def _rank_evaluations(
+    results: list[_IndexedEvaluation],
+) -> list[tuple[ScoredListing, LLMEvaluation]]:
+    ranked = sorted(results, key=lambda p: (-p[2].fit_score, p[0]))
+    return [(scored, evaluation) for _, scored, evaluation in ranked]
+
+
 def batch_evaluate(
     client: OpenAI,
     top_listings: list[ScoredListing],
@@ -253,35 +308,59 @@ def batch_evaluate(
     *,
     model: str = "gpt-4o",
     use_cache: bool = True,
+    concurrency: int = DEFAULT_LLM_CONCURRENCY,
 ) -> list[tuple[ScoredListing, LLMEvaluation]]:
     """
     Evaluate all top listings and return (scored, evaluation) pairs sorted by
     fit_score descending. A failed evaluation is captured as a "maybe" rather
     than aborting the batch.
     """
-    try:
-        from tqdm import tqdm
-        iterator = tqdm(top_listings, desc="LLM evaluation")
-    except ImportError:
-        iterator = top_listings  # type: ignore[assignment]
+    if not top_listings:
+        return []
 
-    results: list[tuple[ScoredListing, LLMEvaluation]] = []
-    for scored in iterator:
-        try:
-            evaluation = evaluate_listing(
-                client, scored, criteria, model=model, use_cache=use_cache
-            )
-        except Exception as e:
-            warnings.warn(f"LLM evaluation failed for {scored.listing.url}: {e}")
-            evaluation = LLMEvaluation(
-                listing_url=scored.listing.url,
-                fit_score=5,
-                fit_summary="Evaluation failed — manual review needed.",
-                strengths=[],
-                red_flags=[f"API error: {e}"],
-                recommendation="maybe",
-                raw_response="",
-            )
-        results.append((scored, evaluation))
+    concurrency = max(1, min(concurrency, len(top_listings)))
 
-    return sorted(results, key=lambda p: p[1].fit_score, reverse=True)
+    if concurrency == 1:
+        indexed = enumerate(top_listings)
+        iterator = _with_progress(indexed, total=len(top_listings), desc="LLM evaluation")
+        results = [
+            (
+                index,
+                scored,
+                _evaluate_for_batch(
+                    client,
+                    scored,
+                    criteria,
+                    model=model,
+                    use_cache=use_cache,
+                ),
+            )
+            for index, scored in iterator
+        ]
+        return _rank_evaluations(results)
+
+    results: list[_IndexedEvaluation] = []
+    with ThreadPoolExecutor(max_workers=concurrency) as executor:
+        futures_by_index = {}
+        for index, scored in enumerate(top_listings):
+            future = executor.submit(
+                _evaluate_for_batch,
+                client,
+                scored,
+                criteria,
+                model=model,
+                use_cache=use_cache,
+            )
+            futures_by_index[future] = (index, scored)
+
+        completed = _with_progress(
+            as_completed(futures_by_index),
+            total=len(futures_by_index),
+            desc=f"LLM evaluation ({concurrency} workers)",
+        )
+
+        for future in completed:
+            index, scored = futures_by_index[future]
+            results.append((index, scored, future.result()))
+
+    return _rank_evaluations(results)

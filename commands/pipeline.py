@@ -22,7 +22,7 @@ import click
 from openai import OpenAI
 from rich.console import Console
 
-from classify.llm import LLMEvaluation, batch_evaluate
+from classify.llm import DEFAULT_LLM_CONCURRENCY, LLMEvaluation, batch_evaluate
 from classify.rules import (
     RawListing,
     ScoredListing,
@@ -191,6 +191,7 @@ class ReportsPipeline:
         self,
         model: str = "gpt-4o",
         use_cache: bool = True,
+        concurrency: int = DEFAULT_LLM_CONCURRENCY,
     ) -> ReportsPipeline:
         """Quick LLM evaluation of top-N rule-scored listings."""
         if self.top_listings:
@@ -210,6 +211,7 @@ class ReportsPipeline:
             self.criteria,
             model=model,
             use_cache=use_cache,
+            concurrency=concurrency,
         )
         return self
 
@@ -300,6 +302,7 @@ def _generate_criteria_file(
 def build_reports_pipeline(
     output_json: Path | None = None,
     llm_model: str = "gpt-4o",
+    llm_concurrency: int = DEFAULT_LLM_CONCURRENCY,
     use_cache: bool = True,
     detailed_top_n: int | None = None,
     min_report_score: int = 5,
@@ -313,7 +316,11 @@ def build_reports_pipeline(
         .scan_for_jobs()
         .eliminate_irrelevant_jobs()
         .score_relevant_positions()
-        .analyze_remaining_positions(model=llm_model, use_cache=use_cache)
+        .analyze_remaining_positions(
+            model=llm_model,
+            use_cache=use_cache,
+            concurrency=llm_concurrency,
+        )
         .generate_reports(
             output_json=output_json,
             reports_dir=reports_dir,
@@ -339,6 +346,13 @@ def build_reports_pipeline(
     default="gpt-4o",
     show_default=True,
     help="OpenAI model for LLM evaluation and report generation.",
+)
+@click.option(
+    "--llm-concurrency",
+    default=DEFAULT_LLM_CONCURRENCY,
+    show_default=True,
+    type=click.IntRange(1, 32),
+    help="Concurrent quick LLM evaluations to run.",
 )
 @click.option(
     "--no-cache",
@@ -369,6 +383,7 @@ def build_reports_pipeline(
 def pipeline_command(
     output_json: str | None,
     llm_model: str,
+    llm_concurrency: int,
     no_cache: bool,
     reports_top_n: int | None,
     reports_dir: str,
@@ -378,6 +393,7 @@ def pipeline_command(
     build_reports_pipeline(
         output_json=Path(output_json) if output_json else None,
         llm_model=llm_model,
+        llm_concurrency=llm_concurrency,
         use_cache=not no_cache,
         detailed_top_n=reports_top_n,
         min_report_score=min_report_score,

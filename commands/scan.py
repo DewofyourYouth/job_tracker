@@ -31,7 +31,7 @@ from openai import OpenAI
 from rich.console import Console
 from rich.table import Table
 
-from classify.llm import LLMEvaluation, batch_evaluate
+from classify.llm import DEFAULT_LLM_CONCURRENCY, LLMEvaluation, batch_evaluate
 from classify.rules import (
     RawListing,
     ScoredListing,
@@ -369,6 +369,9 @@ _T = ScoringTolerances()
               help="Stop after rule scoring. Useful for tuning weights without spending tokens.")
 @click.option("--llm-model",  default="gpt-4o", show_default=True,
               help="OpenAI model to use for evaluation.")
+@click.option("--llm-concurrency", default=DEFAULT_LLM_CONCURRENCY, show_default=True,
+              type=click.IntRange(1, 32),
+              help="Concurrent LLM evaluations to run.")
 @click.option("--no-cache",   is_flag=True, default=False,
               help="Ignore disk cache and re-evaluate all listings via API.")
 @click.option("--output-json", type=click.Path(), default=None,
@@ -394,6 +397,7 @@ def scan_command(
     fetch_descriptions: bool,
     skip_llm: bool,
     llm_model: str,
+    llm_concurrency: int,
     no_cache: bool,
     output_json: str | None,
     criteria_path: str,
@@ -471,7 +475,14 @@ def scan_command(
 
     console.print(f"[bold cyan]Stage 3/3:[/] LLM evaluation ({llm_model})...")
     client = OpenAI()
-    evaluated = batch_evaluate(client, top, criteria, model=llm_model, use_cache=not no_cache)
+    evaluated = batch_evaluate(
+        client,
+        top,
+        criteria,
+        model=llm_model,
+        use_cache=not no_cache,
+        concurrency=llm_concurrency,
+    )
     display_results(evaluated)
     upsert_listings_csv(evaluated=evaluated)
 
