@@ -91,8 +91,8 @@ def build_report_user_prompt(
     listing = scored.listing
 
     desc = listing.description or "not fetched"
-    if len(desc) > 2000:
-        desc = desc[:2000].strip() + "..."
+    if len(desc) > 3000:
+        desc = desc[:3000].strip() + "..."
 
     return render_prompt(
         "report_user.md",

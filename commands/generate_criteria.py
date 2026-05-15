@@ -48,7 +48,12 @@ REQUIRED_KEYS = [
 # ---------------------------------------------------------------------------
 
 def build_system_prompt() -> str:
-    schema = EXAMPLE_PATH.read_text() if EXAMPLE_PATH.exists() else ""
+    if not EXAMPLE_PATH.exists():
+        raise FileNotFoundError(
+            f"Criteria schema template not found at {EXAMPLE_PATH}. "
+            "This file is required for criteria generation."
+        )
+    schema = EXAMPLE_PATH.read_text()
     return render_prompt("criteria_system.md", schema=schema)
 
 
