@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "job-tracker"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "click>=8.3",
+  "httpx>=0.28",
+  "jinja2>=3.1",
+  "openai>=2.35",
+  "pyyaml>=6.0",
+  "rich>=15.0",
+  "sentence-transformers>=5.4",
+  "tqdm>=4.67",
+]
+
+[project.scripts]
+job = "entrypoint:cli"
+
+[tool.setuptools]
+py-modules = ["entrypoint"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["*.venv*", "*.git*", "output*", "data*"]

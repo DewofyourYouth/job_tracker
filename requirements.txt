@@ -1,3 +1,5 @@
+# Pinned lockfile — regenerate with: pip freeze > requirements.txt
+# Direct dependencies are declared in pyproject.toml.
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.5
 aiohttp-jinja2==1.6
