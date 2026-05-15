@@ -11,12 +11,25 @@
 # Required env vars: OPENAI_API_KEY (openai) | ANTHROPIC_API_KEY (anthropic)
 provider: openai
 
+# Model reference
+# ┌─────────────────────┬────────────────────────────────┬─────────────────────────────────┐
+# │ Tier                │ OpenAI                         │ Anthropic                       │
+# ├─────────────────────┼────────────────────────────────┼─────────────────────────────────┤
+# │ Fast / cheap        │ gpt-4.1-nano                   │ claude-haiku-4-5-20251001        │
+# │ Balanced            │ gpt-4.1-mini                   │ claude-sonnet-4-6               │
+# │ Best quality        │ gpt-4.1                        │ claude-opus-4-7                 │
+# └─────────────────────┴────────────────────────────────┴─────────────────────────────────┘
+
 # Stage 2 — generate scoring-criteria.yaml from your CV + profile.
+# One-off call; quality matters more than cost here.
+# Anthropic equivalent: claude-sonnet-4-6
 criteria_generation:
   model: gpt-4.1-mini
   max_tokens: 2048
 
 # Stage 6 — quick fit evaluation of the top-N rule-scored listings.
+# High volume — use the cheapest model that produces reliable JSON scores.
+# Anthropic equivalent: claude-haiku-4-5-20251001
 llm_evaluation:
   model: gpt-4.1-nano
   max_tokens: 512
@@ -24,6 +37,8 @@ llm_evaluation:
   top_n: 20        # listings forwarded to this stage — the primary cost lever
 
 # Stage 7 — detailed per-listing markdown reports.
+# Small set; richer output justifies a stronger model.
+# Anthropic equivalent: claude-sonnet-4-6  (or claude-opus-4-7 for best quality)
 report_generation:
   model: gpt-4.1-mini
   max_tokens: 1500
@@ -35,7 +50,8 @@ semantic:
   model: all-MiniLM-L6-v2
 
 # apply — generates tailored CV + cover letter HTML for one listing.
-# One API call per run; higher token budget needed for full structured CV output.
+# One call per run; higher token budget needed for full structured CV output.
+# Anthropic equivalent: claude-sonnet-4-6
 apply_generation:
   model: gpt-4.1-mini
   max_tokens: 3500

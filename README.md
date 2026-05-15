@@ -316,22 +316,25 @@ Numeric overrides for the rule scoring engine. Safe to hand-edit; not regenerate
 Per-stage model selection, token budgets, concurrency, volume controls, and provider selection.
 
 ```yaml
-# Default provider for all stages. Valid values: openai, anthropic
-# Per-stage `provider:` key overrides the top-level default for that stage only.
+# provider: openai | anthropic  (per-stage override also supported)
+# OpenAI ↔ Anthropic rough equivalents:
+#   gpt-4.1-nano  →  claude-haiku-4-5-20251001   (fast / cheap)
+#   gpt-4.1-mini  →  claude-sonnet-4-6            (balanced)
+#   gpt-4.1       →  claude-opus-4-7              (best quality)
 provider: openai
 
 criteria_generation:
-  model: gpt-4.1-mini
+  model: gpt-4.1-mini        # anthropic: claude-sonnet-4-6
   max_tokens: 2048
 
 llm_evaluation:
-  model: gpt-4.1-nano   # cheapest adequate model for high-volume quick eval
+  model: gpt-4.1-nano        # anthropic: claude-haiku-4-5-20251001
   max_tokens: 512
   concurrency: 5
   top_n: 20
 
 report_generation:
-  model: gpt-4.1-mini   # better model for the small set of detailed reports
+  model: gpt-4.1-mini        # anthropic: claude-sonnet-4-6
   max_tokens: 1500
   min_score: 7
   top_n: 5
@@ -340,7 +343,7 @@ semantic:
   model: all-MiniLM-L6-v2   # local; no API call
 
 apply_generation:
-  model: gpt-4.1-mini   # one call per listing; higher token budget for full CV output
+  model: gpt-4.1-mini        # anthropic: claude-sonnet-4-6
   max_tokens: 3500
 ```
 
