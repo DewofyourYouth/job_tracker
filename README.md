@@ -380,8 +380,16 @@ CLI flags override model and volume values for a single run. Provider selection 
 
 ### Structured outputs
 
-- Migrate quick LLM evaluation to structured JSON output mode (currently parsed from free-text JSON in the response body).
-- Schema validation on LLM output at each stage rather than optimistic parsing.
+- ✅ All LLM calls use JSON output mode (`response_format: json_object` on OpenAI; prefill trick on Anthropic).
+- Schema validation on LLM output at each stage — currently parsed optimistically with `data.get(...)` fallbacks rather than validated against the expected shape before use.
+
+### Provider abstraction
+
+- ✅ Thin `LLMClient` interface (`providers/`) with OpenAI and Anthropic implementations. Provider selected via `provider:` field in `api-cost-config.yaml`, overridable per stage.
+
+### Application materials
+
+- ✅ `job apply` generates a tailored CV and cover letter, renders them into HTML templates, and exports PDFs via Playwright CDP.
 
 ### Application tracking
 
