@@ -49,8 +49,11 @@ from commands.generate_criteria import (
 from commands.report import DEFAULT_REPORT_MAX_TOKENS, REPORTS_DIR, batch_generate_reports
 from commands.scan import (
     apply_portals_title_filter,
+    criteria_hash,
     display_results,
+    load_csv_index,
     upsert_listings_csv,
+    urls_to_skip,
     write_json_output,
 )
 from injest.job_boards import fetch_description, ingest_all, load_portals_config
@@ -139,6 +142,7 @@ class ReportsPipeline:
         self.rest_listings: list[ScoredListing] = []
         self.evaluated: list[tuple[ScoredListing, LLMEvaluation]] = []
         self._cost_config: dict = cost_config or {}
+        self._criteria_hash: str = ""
 
     # -------------------------------------------------------------------------
     # Stage 1
@@ -202,11 +206,23 @@ class ReportsPipeline:
         self.config = config_from_criteria(self.criteria, self.tuning)
         if top_n_for_llm is not None:
             self.config.tolerances.top_n_for_llm = top_n_for_llm
+        self._criteria_hash = criteria_hash(self.criteria)
         console.print("[bold cyan]Stage 3/7:[/] Scanning job boards...")
         self.raw_listings = ingest_all(self.portals_config)
-        # Candidates start as the full raw list; eliminate_irrelevant_jobs narrows them.
-        self.candidates = list(self.raw_listings)
         console.print(f"  Found [bold]{len(self.raw_listings)}[/] raw listings.")
+
+        index = load_csv_index()
+        skip = urls_to_skip(index, self._criteria_hash, self.config.tolerances.min_score_threshold)
+        if skip:
+            before = len(self.raw_listings)
+            self.raw_listings = [l for l in self.raw_listings if l.url not in skip]
+            console.print(
+                f"  [dim]Skipping {before - len(self.raw_listings)} already-processed listings "
+                f"(dead or previously rejected with same criteria).[/]"
+            )
+
+        # Candidates start as the filtered raw list; eliminate_irrelevant_jobs narrows them.
+        self.candidates = list(self.raw_listings)
         return self
 
     # -------------------------------------------------------------------------
@@ -239,7 +255,7 @@ class ReportsPipeline:
             enriched = _fetch_descriptions_for_vague_listings(vague)
             self.candidates = [enriched.get(l.url, l) for l in self.candidates]
 
-        upsert_listings_csv(raw=self.candidates)
+        upsert_listings_csv(raw=self.candidates, criteria_hash_val=self._criteria_hash)
         return self
 
     # -------------------------------------------------------------------------
@@ -269,7 +285,7 @@ class ReportsPipeline:
             f"[yellow]{len(survived_cut)}[/] surviving cut, "
             f"[red]{below_threshold}[/] below threshold."
         )
-        upsert_listings_csv(scored=self.top_listings + survived_cut)
+        upsert_listings_csv(scored=self.top_listings + survived_cut, criteria_hash_val=self._criteria_hash)
         return self
 
     # -------------------------------------------------------------------------
@@ -291,7 +307,7 @@ class ReportsPipeline:
                 updated_listing = fetch_description(scored.listing)
                 enriched.append(score_listing(updated_listing, self.criteria, self.config))
             self.top_listings = sorted(enriched, key=lambda s: s.total_score, reverse=True)
-            upsert_listings_csv(scored=self.top_listings)
+            upsert_listings_csv(scored=self.top_listings, criteria_hash_val=self._criteria_hash)
 
         console.print(f"[bold cyan]Stage 6/7:[/] LLM evaluation ({model})...")
         client = get_client(self._cost_config, stage="llm_evaluation")
@@ -347,7 +363,7 @@ class ReportsPipeline:
                 for url, path in paths_by_url.items()
             }
 
-        upsert_listings_csv(evaluated=self.evaluated, report_paths=report_paths)
+        upsert_listings_csv(evaluated=self.evaluated, report_paths=report_paths, criteria_hash_val=self._criteria_hash)
         return self
 
 

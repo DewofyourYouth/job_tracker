@@ -241,14 +241,16 @@ class AshbyIngester(IngestionSource):
             warnings.warn(f"[ashby_api] {config['name']}: {exc}")
             return []
 
+        _WORKPLACE_LABELS = {"Remote": "Remote", "OnSite": "Onsite", "Hybrid": "Hybrid"}
         listings = []
         for job in resp.json().get("jobs", []):
             workplace = job.get("workplaceType")
             location = job.get("location") or ""
-            if workplace == "Remote" and location:
-                location = f"{location} (Remote)"
-            elif workplace == "Remote":
-                location = "Remote"
+            label = _WORKPLACE_LABELS.get(workplace or "", "")
+            if label and location:
+                location = f"{location} ({label})"
+            elif label:
+                location = label
             listings.append(RawListing(
                 title=job["title"],
                 company=config["name"],

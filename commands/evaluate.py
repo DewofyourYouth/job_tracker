@@ -19,18 +19,21 @@ import click
 import httpx
 import yaml
 from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
 
 from classify.llm import DEFAULT_LLM_MAX_TOKENS, evaluate_listing
 from classify.rules import (
     DEFAULT_TUNING_PATH,
     RawListing,
+    ScoredListing,
     config_from_criteria,
     load_criteria,
     load_tuning_config,
     score_listing,
 )
 from commands.pipeline import _extract_candidate_summary
-from commands.scan import CRITERIA_PATH, display_results, upsert_listings_csv
+from commands.scan import CRITERIA_PATH, display_results, load_csv_index, upsert_listings_csv
 from providers import get_client
 
 console = Console()
@@ -142,10 +145,16 @@ def _fetch_ashby(url: str) -> RawListing:
             job = data.get("job", data)
             workplace = job.get("workplaceType", "")
             loc = job.get("location") or ""
-            if workplace == "Remote" and loc:
-                location: str | None = f"{loc} (Remote)"
-            elif workplace == "Remote":
-                location = "Remote"
+            _WORKPLACE_LABELS = {
+                "Remote": "Remote",
+                "OnSite": "Onsite",
+                "Hybrid": "Hybrid",
+            }
+            label = _WORKPLACE_LABELS.get(workplace, "")
+            if label and loc:
+                location: str | None = f"{loc} ({label})"
+            elif label:
+                location = label
             else:
                 location = loc or None
             desc_html = job.get("descriptionHtml") or job.get("description") or ""
@@ -231,6 +240,59 @@ def fetch_listing_from_url(url: str) -> RawListing:
 
 
 # ---------------------------------------------------------------------------
+# Rule violations display
+# ---------------------------------------------------------------------------
+
+_VIOLATION_THRESHOLDS: dict[str, float] = {
+    "location_remote": 0.6,
+    "avoid_penalty": 1.0,
+    "role_fit": 0.3,
+    "seniority": 0.01,  # 0.0 means total mismatch
+}
+
+_CRITERION_LABELS: dict[str, str] = {
+    "location_remote": "Location",
+    "avoid_penalty": "Avoid-title penalty",
+    "role_fit": "Role fit",
+    "seniority": "Seniority",
+    "tech_stack": "Tech stack",
+}
+
+
+def _display_rule_violations(scored: ScoredListing) -> None:
+    lines: list[str] = []
+
+    if scored.disqualified:
+        lines.append(f"DISQUALIFIED: {scored.disqualify_reason}")
+
+    for name, threshold in _VIOLATION_THRESHOLDS.items():
+        cs = scored.criteria.get(name)
+        if cs is None:
+            continue
+        if cs.raw_score < threshold:
+            label = _CRITERION_LABELS.get(name, name)
+            lines.append(f"{label}: {cs.raw_score:.2f} — {cs.reason}")
+
+    if not lines:
+        return
+
+    body = Text()
+    for i, line in enumerate(lines):
+        if i:
+            body.append("\n")
+        body.append(line, style="bold yellow")
+
+    console.print(
+        Panel(
+            body,
+            title="[bold red] RULES OVERRIDDEN [/bold red]",
+            border_style="red",
+            padding=(0, 1),
+        )
+    )
+
+
+# ---------------------------------------------------------------------------
 # CLI command
 # ---------------------------------------------------------------------------
 
@@ -283,10 +345,24 @@ def evaluate_command(
 
     evaluated: list[tuple] = []
 
+    csv_index = load_csv_index()
+
     for url in urls:
         console.print(f"\n[bold cyan]Fetching:[/] {url}")
+
+        if csv_index.get(url, {}).get("Status") == "dead":
+            console.print("  [yellow]Skipped:[/] previously returned 404 — URL is marked dead.")
+            continue
+
         try:
             listing = fetch_listing_from_url(url)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                console.print("  [red]404 Not Found[/] — marking URL as dead (will skip in future runs).")
+                upsert_listings_csv(dead_urls={url})
+            else:
+                console.print(f"  [red]HTTP {exc.response.status_code}:[/] {exc}")
+            continue
         except Exception as exc:
             console.print(f"  [red]Error:[/] {exc}")
             continue
@@ -297,13 +373,12 @@ def evaluate_command(
         )
 
         scored = score_listing(listing, criteria, config)
-        if scored.disqualified:
-            console.print(f"  [yellow]Note:[/] rules would disqualify — {scored.disqualify_reason}")
-        else:
-            console.print(f"  Rule score: [bold]{scored.total_score:.3f}[/]  ", end="")
-            for name, c in scored.criteria.items():
-                console.print(f"{name}={c.raw_score:.2f} ", end="")
-            console.print()
+        console.print(f"  Rule score: [bold]{scored.total_score:.3f}[/]  ", end="")
+        for name, c in scored.criteria.items():
+            console.print(f"{name}={c.raw_score:.2f} ", end="")
+        console.print()
+
+        _display_rule_violations(scored)
 
         console.print(f"  [dim]LLM evaluation ({model})...[/]")
         evaluation = evaluate_listing(

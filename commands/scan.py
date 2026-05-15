@@ -21,6 +21,7 @@ Full pipeline:
 
 
 import csv
+import hashlib
 import json
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -74,8 +75,62 @@ _CSV_FIELDS = [
     "Strengths",
     "Red Flags",
     "Report Path",
+    "Status",
+    "Criteria Hash",
 ]
 _DESCRIPTION_PREVIEW_CHARS = 500
+
+
+def criteria_hash(criteria: dict) -> str:
+    """Stable short hash of the criteria dict — used to detect when re-evaluation is needed."""
+    import yaml as _yaml
+    text = _yaml.dump(criteria, sort_keys=True, default_flow_style=False)
+    return hashlib.sha256(text.encode()).hexdigest()[:12]
+
+
+def load_csv_index(csv_path: Path = LISTINGS_CSV_PATH) -> dict[str, dict[str, str]]:
+    """Return the listings CSV as a {url: row} dict. Empty dict if file absent."""
+    if not csv_path.exists():
+        return {}
+    with csv_path.open(newline="", encoding="utf-8") as f:
+        return {
+            row["Url"]: {field: row.get(field, "") for field in _CSV_FIELDS}
+            for row in csv.DictReader(f)
+            if row.get("Url")
+        }
+
+
+def urls_to_skip(
+    index: dict[str, dict[str, str]],
+    current_criteria_hash: str,
+    min_score_threshold: float,
+) -> set[str]:
+    """
+    Return URLs that can safely be skipped this run.
+
+    Skipped when ANY of:
+    - Status == "dead" (returned 404 / URL gone)
+    - Same criteria hash AND LLM Recommendation == "skip"
+    - Same criteria hash AND rule score below min_score_threshold
+    """
+    skip: set[str] = set()
+    for url, row in index.items():
+        if row.get("Status") == "dead":
+            skip.add(url)
+            continue
+        if row.get("Criteria Hash") != current_criteria_hash:
+            continue
+        if row.get("Recommendation") == "skip":
+            skip.add(url)
+            continue
+        rule_score_str = row.get("Rule Score", "")
+        if rule_score_str:
+            try:
+                if float(rule_score_str) < min_score_threshold:
+                    skip.add(url)
+            except ValueError:
+                pass
+    return skip
 
 
 def apply_portals_title_filter(criteria: dict, portals_config: dict) -> dict:
@@ -286,12 +341,18 @@ def upsert_listings_csv(
     scored: list[ScoredListing] | None = None,
     evaluated: list[tuple[ScoredListing, LLMEvaluation]] | None = None,
     report_paths: dict[str, str] | None = None,
+    dead_urls: set[str] | None = None,
+    criteria_hash_val: str | None = None,
     csv_path: Path = LISTINGS_CSV_PATH,
 ) -> None:
     """Upsert job listing data into the CSV. URL is the dedup key.
 
     Call with any combination of inputs — only the fields each source knows
     about are written; existing values for other fields are preserved.
+
+    dead_urls: mark these URLs as Status="dead" (404 / gone).
+    criteria_hash_val: if provided, written to scored/evaluated rows so future
+        runs can skip re-evaluation when criteria haven't changed.
     """
     seen_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     rows: dict[str, dict] = {}
@@ -316,16 +377,28 @@ def upsert_listings_csv(
         for item in scored:
             row = _ensure(item.listing)
             _apply_scored_to_row(row, item, seen_at)
+            if criteria_hash_val:
+                row["Criteria Hash"] = criteria_hash_val
 
     if evaluated:
-        for scored, evaluation in evaluated:
-            row = _ensure(scored.listing)
-            _apply_scored_to_row(row, scored, seen_at)
+        for scored_item, evaluation in evaluated:
+            row = _ensure(scored_item.listing)
+            _apply_scored_to_row(row, scored_item, seen_at)
             row["Score"] = str(evaluation.fit_score)
             row["Recommendation"] = evaluation.recommendation
             row["Fit Summary"] = _format_csv_value(evaluation.fit_summary)
             row["Strengths"] = _join_csv_list(evaluation.strengths)
             row["Red Flags"] = _join_csv_list(evaluation.red_flags)
+            if criteria_hash_val:
+                row["Criteria Hash"] = criteria_hash_val
+
+    if dead_urls:
+        for url in dead_urls:
+            if url not in rows:
+                rows[url] = _blank_csv_row()
+                rows[url]["Url"] = url
+            rows[url]["Status"] = "dead"
+            rows[url]["Last Seen"] = seen_at
 
     if report_paths:
         for url, path in report_paths.items():
@@ -442,12 +515,24 @@ def scan_command(
     if location_override is not None:
         config.tolerances.location_override_role_fit = location_override
 
+    chash = criteria_hash(criteria)
+
     # -----------------------------------------------------------------------
     # Stage 1: Ingest
     # -----------------------------------------------------------------------
     console.print("[bold cyan]Stage 1/3:[/] Ingesting job listings...")
     raw_listings = ingest_all(portals_config)
     console.print(f"  Found [bold]{len(raw_listings)}[/] raw listings.")
+
+    index = load_csv_index()
+    skip = urls_to_skip(index, chash, config.tolerances.min_score_threshold)
+    if skip:
+        before = len(raw_listings)
+        raw_listings = [l for l in raw_listings if l.url not in skip]
+        console.print(
+            f"  [dim]Skipping {before - len(raw_listings)} already-processed listings "
+            f"(dead or previously rejected with same criteria).[/]"
+        )
 
     # -----------------------------------------------------------------------
     # Stage 2: Rule-based filter and rank
@@ -472,7 +557,7 @@ def scan_command(
     )
 
     # Write all listings that survived scoring to the CSV.
-    upsert_listings_csv(scored=top + survived_cut)
+    upsert_listings_csv(scored=top + survived_cut, criteria_hash_val=chash)
 
     if fetch_descriptions and top:
         for i, s in enumerate(top):
@@ -482,7 +567,7 @@ def scan_command(
             except Exception as e:
                 console.print(f"  [yellow]Warning:[/] couldn't fetch description: {e}")
         top.sort(key=lambda s: s.total_score, reverse=True)
-        upsert_listings_csv(scored=top)
+        upsert_listings_csv(scored=top, criteria_hash_val=chash)
 
     # -----------------------------------------------------------------------
     # Stage 3: LLM evaluation
@@ -507,7 +592,7 @@ def scan_command(
         concurrency=llm_concurrency,
     )
     display_results(evaluated)
-    upsert_listings_csv(evaluated=evaluated)
+    upsert_listings_csv(evaluated=evaluated, criteria_hash_val=chash)
 
     if output_json:
         write_json_output(evaluated, config, Path(output_json))
