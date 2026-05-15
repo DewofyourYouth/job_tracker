@@ -1,3 +1,5 @@
+![Job Tracker Header](header.jpg)
+
 # job-tracker
 
 A local-first, cost-aware job search pipeline built around structured orchestration and selective LLM evaluation. It ingests job listings from ATS APIs and search sources, filters and scores them deterministically, and routes only the highest-confidence candidates to an LLM for deeper evaluation and report generation.
