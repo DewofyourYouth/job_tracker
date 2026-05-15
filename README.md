@@ -2,8 +2,6 @@
 
 A local-first, cost-aware job search pipeline built around structured orchestration and selective LLM evaluation. It ingests job listings from ATS APIs and search sources, filters and scores them deterministically, and routes only the highest-confidence candidates to an LLM for deeper evaluation and report generation.
 
-Inspired by [career-ops](https://github.com/santifer/career-ops) by [santifer](https://github.com/santifer).
-
 ---
 
 ## Why I Built This
@@ -344,3 +342,7 @@ Private files are gitignored:
 - `output/`
 
 Example files (`data/*.example.*`) are committed. Personal data and API keys are not.
+
+---
+
+Inspired by [career-ops](https://github.com/santifer/career-ops) by [santifer](https://github.com/santifer).
