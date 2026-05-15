@@ -18,6 +18,9 @@ dependencies = [
   "tqdm>=4.67",
 ]
 
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.40"]
+
 [project.scripts]
 job = "entrypoint:cli"
 

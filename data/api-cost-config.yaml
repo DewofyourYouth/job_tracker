@@ -5,6 +5,11 @@
 # Stage 5: Semantic scoring     — local model, no API cost.
 # Stage 6: LLM evaluation       — one call per listing forwarded from the rule scorer.
 # Stage 7: Report generation    — one call per listing that scores >= report_generation.min_score.
+#
+# provider: default LLM provider for all stages. Valid values: openai, anthropic
+# Per-stage `provider:` key overrides the top-level default for that stage only.
+# Required env vars: OPENAI_API_KEY (openai) | ANTHROPIC_API_KEY (anthropic)
+provider: openai
 
 # Stage 2 — generate scoring_criteria.yaml from your CV + profile.
 criteria_generation:

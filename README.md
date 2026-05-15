@@ -106,6 +106,10 @@ job-tracker/
 │   ├── score.py               # Rule-based scoring engine
 │   ├── llm.py                 # Quick LLM evaluation (cached)
 │   └── semantic.py            # Local semantic scoring
+├── providers/
+│   ├── base.py                # LLMClient ABC + LLMRateLimitError / LLMAPIError
+│   ├── openai_client.py       # OpenAI implementation
+│   └── anthropic_client.py    # Anthropic implementation (requires anthropic extra)
 ├── fetch/                     # ATS API clients (Greenhouse, Lever, Workable, Ashby)
 ├── prompts/
 │   ├── render.py              # Jinja2 template renderer
@@ -134,7 +138,7 @@ job-tracker/
 - `data/cv.md` + `data/profile.yaml` → `generate-criteria` → `data/scoring_criteria.yaml`
 - `data/portals.yaml` → discovery → `data/listings.csv` (upserted each run)
 - `data/scoring_criteria.yaml` + `data/scoring_tuning.yaml` → rule scoring
-- `data/api-cost-config.yaml` → model selection, token budgets, concurrency, volume controls
+- `data/api-cost-config.yaml` → provider selection, model, token budgets, concurrency, volume controls
 - `output/llm_cache/` → hash-keyed evaluation cache (skips re-evaluation on rerun)
 - `output/reports/` → URL-keyed markdown reports (skips regeneration if report exists)
 - `data/listings.csv` + `data/cv.md` → `apply` → `output/applications/<slug>/cv.pdf` + `cover-letter.pdf`
@@ -181,13 +185,22 @@ cp data/api-cost-config.example.yaml data/api-cost-config.yaml
 
 Edit `data/cv.md` with your CV text. Edit `data/profile.yaml` with your contact details, target roles, preferences, compensation, and location constraints.
 
-### OpenAI API key
+### API keys
+
+The default provider is OpenAI. Set the key for whichever provider you configure in `data/api-cost-config.yaml`:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+export OPENAI_API_KEY="sk-..."        # provider: openai (default)
+export ANTHROPIC_API_KEY="sk-ant-..." # provider: anthropic
 ```
 
 This project does not load `.env` automatically.
+
+To use Anthropic, install the optional dependency:
+
+```bash
+pip install "job-tracker[anthropic]"
+```
 
 ---
 
@@ -300,9 +313,13 @@ Numeric overrides for the rule scoring engine. Safe to hand-edit; not regenerate
 
 ### API cost config (`data/api-cost-config.yaml`)
 
-Per-stage model selection, token budgets, concurrency, and volume controls.
+Per-stage model selection, token budgets, concurrency, volume controls, and provider selection.
 
 ```yaml
+# Default provider for all stages. Valid values: openai, anthropic
+# Per-stage `provider:` key overrides the top-level default for that stage only.
+provider: openai
+
 criteria_generation:
   model: gpt-4.1-mini
   max_tokens: 2048
@@ -327,7 +344,20 @@ apply_generation:
   max_tokens: 3500
 ```
 
-CLI flags override config values for a single run.
+To switch a single stage to Anthropic while keeping the rest on OpenAI:
+
+```yaml
+provider: openai
+
+report_generation:
+  provider: anthropic
+  model: claude-opus-4-7
+  max_tokens: 1500
+  min_score: 7
+  top_n: 5
+```
+
+CLI flags override model and volume values for a single run. Provider selection is config-only.
 
 ---
 
@@ -347,10 +377,6 @@ CLI flags override config values for a single run.
 
 - Migrate quick LLM evaluation to structured JSON output mode (currently parsed from free-text JSON in the response body).
 - Schema validation on LLM output at each stage rather than optimistic parsing.
-
-### Provider abstraction
-
-- Thin provider interface so criteria generation, quick eval, and report generation can run against OpenAI, Claude, Gemini, or a local model without changing pipeline code.
 
 ### Application tracking
 

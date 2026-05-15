@@ -13,7 +13,6 @@ from pathlib import Path
 
 import click
 import yaml
-from openai import OpenAI
 from rich.console import Console
 from rich.table import Table
 
@@ -95,7 +94,7 @@ def _pick_listing_interactively() -> dict | None:
 # ---------------------------------------------------------------------------
 
 def generate_application_content(
-    client: OpenAI,
+    client,
     listing: dict,
     cv_text: str,
     profile_text: str,
@@ -123,17 +122,15 @@ def generate_application_content(
         include_cover_letter=include_cover_letter,
     )
 
-    response = client.chat.completions.create(
-        model=model,
-        response_format={"type": "json_object"},
-        max_tokens=max_tokens,
-        messages=[
+    raw = client.chat(
+        [
             {"role": "system", "content": render_prompt("apply_system.md")},
             {"role": "user", "content": user_msg},
         ],
-    )
-
-    raw = response.choices[0].message.content or "{}"
+        model=model,
+        max_tokens=max_tokens,
+        json_mode=True,
+    ) or "{}"
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
@@ -381,11 +378,10 @@ def html_to_pdf(
 # Cost config
 # ---------------------------------------------------------------------------
 
-def _load_apply_config() -> dict:
+def _load_cost_config() -> dict:
     if not API_COST_CONFIG_PATH.exists():
         return {}
-    cfg = yaml.safe_load(API_COST_CONFIG_PATH.read_text(encoding="utf-8")) or {}
-    return cfg.get("apply_generation", {})
+    return yaml.safe_load(API_COST_CONFIG_PATH.read_text(encoding="utf-8")) or {}
 
 
 # ---------------------------------------------------------------------------
@@ -410,10 +406,15 @@ def apply_command(url, no_cover_letter, pdf, model, output_dir, open_browser):
     URL is optional — omit to pick interactively from listings.csv.
     Outputs HTML by default; add --pdf to export PDFs via Chrome headless.
     """
-    api_key = os.environ.get("OPENAI_API_KEY", "")
-    if not api_key:
-        console.print("[red]OPENAI_API_KEY is not set.[/]")
-        raise click.Abort()
+    from providers import get_client, validate_provider
+    from commands.auth import AuthError
+
+    cost_config = _load_cost_config()
+    try:
+        validate_provider(cost_config, stage="apply_generation")
+    except AuthError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise click.Abort() from exc
 
     # resolve listing
     if url:
@@ -441,12 +442,12 @@ def apply_command(url, no_cover_letter, pdf, model, output_dir, open_browser):
     profile_text = PROFILE_PATH.read_text(encoding="utf-8")
     profile = yaml.safe_load(profile_text) or {}
 
-    apply_cfg = _load_apply_config()
+    apply_cfg = cost_config.get("apply_generation", {})
     resolved_model = model or apply_cfg.get("model", DEFAULT_APPLY_MODEL)
     resolved_max_tokens = int(apply_cfg.get("max_tokens", DEFAULT_APPLY_MAX_TOKENS))
     include_cover_letter = not no_cover_letter
 
-    client = OpenAI(api_key=api_key)
+    client = get_client(cost_config, stage="apply_generation")
 
     console.print(f"  Calling {resolved_model} (max {resolved_max_tokens} tokens)...")
     content = generate_application_content(

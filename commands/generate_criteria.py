@@ -23,11 +23,11 @@ from pathlib import Path
 
 import click
 import yaml
-from openai import OpenAI
 from rich.console import Console
 from rich.syntax import Syntax
 
 from prompts.render import render_prompt
+from providers import get_client
 
 console = Console()
 
@@ -36,6 +36,7 @@ PROFILE_PATH = Path("data/profile.yaml")
 DEFAULT_OUTPUT = Path("data/scoring_criteria.yaml")
 EXAMPLE_PATH = Path("data/scoring_criteria.example.yaml")
 PORTALS_PATH = Path("data/portals.yaml")
+API_COST_CONFIG_PATH = Path("data/api-cost-config.yaml")
 REQUIRED_KEYS = [
     "weights", "tolerances", "role_fit",
     "seniority", "location_remote", "tech_stack", "avoid", "compensation",
@@ -219,11 +220,10 @@ def generate_criteria_command(
 
     console.print(f"[bold cyan]Generating scoring criteria[/] using [bold]{model}[/]...")
 
-    client = OpenAI()
-    response = client.chat.completions.create(
-        model=model,
-        max_tokens=2048,
-        messages=[
+    cost_cfg = yaml.safe_load(API_COST_CONFIG_PATH.read_text()) if API_COST_CONFIG_PATH.exists() else {}
+    client = get_client(cost_cfg, stage="criteria_generation")
+    raw_yaml = strip_fences(client.chat(
+        [
             {"role": "system", "content": build_system_prompt()},
             {
                 "role": "user",
@@ -234,9 +234,9 @@ def generate_criteria_command(
                 ),
             },
         ],
-    )
-
-    raw_yaml = strip_fences(response.choices[0].message.content or "")
+        model=model,
+        max_tokens=2048,
+    ))
     generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     final_yaml = inject_meta(raw_yaml, generated_at)
     final_yaml = inject_title_filter(final_yaml, portals_title_filter)

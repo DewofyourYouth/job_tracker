@@ -23,7 +23,6 @@ from pathlib import Path
 
 import click
 import yaml
-from openai import OpenAI
 from rich.console import Console
 
 from classify.llm import DEFAULT_LLM_CONCURRENCY, DEFAULT_LLM_MAX_TOKENS, LLMEvaluation, batch_evaluate
@@ -53,6 +52,7 @@ from commands.scan import (
     write_json_output,
 )
 from injest.job_boards import fetch_description, ingest_all, load_portals_config
+from providers import get_client
 
 console = Console()
 
@@ -78,7 +78,7 @@ class ReportsPipeline:
     output stored on self.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, cost_config: dict | None = None) -> None:
         self.cv_text: str = ""
         self.profile_text: str = ""
         self.criteria: dict = {}
@@ -90,6 +90,7 @@ class ReportsPipeline:
         self.top_listings: list[ScoredListing] = []
         self.rest_listings: list[ScoredListing] = []
         self.evaluated: list[tuple[ScoredListing, LLMEvaluation]] = []
+        self._cost_config: dict = cost_config or {}
 
     # -------------------------------------------------------------------------
     # Stage 1
@@ -119,11 +120,11 @@ class ReportsPipeline:
         """Load existing scoring criteria, or call OpenAI to generate them."""
         if not criteria_path.exists():
             console.print(
-                f"[bold cyan]Stage 2/7:[/] Generating scoring criteria "
-                f"via OpenAI ({model})..."
+                f"[bold cyan]Stage 2/7:[/] Generating scoring criteria ({model})..."
             )
             _generate_criteria_file(
-                self.cv_text, self.profile_text, criteria_path, model, max_tokens
+                self.cv_text, self.profile_text, criteria_path, model, max_tokens,
+                cost_config=self._cost_config,
             )
         else:
             console.print(
@@ -233,7 +234,7 @@ class ReportsPipeline:
             upsert_listings_csv(scored=self.top_listings)
 
         console.print(f"[bold cyan]Stage 6/7:[/] LLM evaluation ({model})...")
-        client = OpenAI()
+        client = get_client(self._cost_config, stage="llm_evaluation")
         self.evaluated = batch_evaluate(
             client,
             self.top_listings,
@@ -267,7 +268,7 @@ class ReportsPipeline:
 
         report_paths: dict[str, str] = {}
         if self.evaluated:
-            client = OpenAI()
+            client = get_client(self._cost_config, stage="report_generation")
             paths_by_url = batch_generate_reports(
                 client,
                 self.evaluated,
@@ -299,9 +300,10 @@ def _generate_criteria_file(
     output_path: Path,
     model: str,
     max_tokens: int = 2048,
+    cost_config: dict | None = None,
 ) -> None:
     """
-    Call the OpenAI API to write scoring_criteria.yaml from the CV + profile.
+    Call the LLM to write scoring_criteria.yaml from the CV + profile.
 
     Reuses the prompt builders and post-processors from generate_criteria.py
     so that pipeline-generated criteria are identical to those produced by the
@@ -309,17 +311,15 @@ def _generate_criteria_file(
     """
     from datetime import datetime, timezone
 
-    client = OpenAI()
-    response = client.chat.completions.create(
-        model=model,
-        max_tokens=max_tokens,
-        messages=[
+    client = get_client(cost_config or {}, stage="criteria_generation")
+    raw_yaml = strip_fences(client.chat(
+        [
             {"role": "system", "content": build_system_prompt()},
             {"role": "user", "content": build_user_message(cv_text, profile_text)},
         ],
-    )
-
-    raw_yaml = strip_fences(response.choices[0].message.content or "")
+        model=model,
+        max_tokens=max_tokens,
+    ))
     generated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     final_yaml = inject_meta(raw_yaml, generated_at)
 
@@ -362,7 +362,7 @@ def build_reports_pipeline(
     _semantic_model = sem_cfg.get("model") or None
 
     (
-        ReportsPipeline()
+        ReportsPipeline(cost_config=cfg)
         .read_profile_and_cv()
         .generate_criteria(model=_crit_model, max_tokens=_crit_max_tokens)
         .scan_for_jobs(tuning_path=tuning_path, top_n_for_llm=_top_n_for_llm)

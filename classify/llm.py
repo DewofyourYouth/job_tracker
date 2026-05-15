@@ -20,7 +20,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Optional
 
-from openai import OpenAI
+from providers.base import LLMClient
 
 from classify.rules import ScoredListing
 from prompts.render import render_prompt
@@ -144,7 +144,7 @@ def _save_cached(evaluation: LLMEvaluation, scored: ScoredListing, criteria: dic
 # ---------------------------------------------------------------------------
 
 def evaluate_listing(
-    client: OpenAI,
+    client: LLMClient,
     scored: ScoredListing,
     criteria: dict,
     *,
@@ -153,7 +153,7 @@ def evaluate_listing(
     max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
 ) -> LLMEvaluation:
     """
-    Evaluate one listing via the OpenAI API.
+    Evaluate one listing via the LLM.
 
     Cache check happens before the API call; result is written to cache after.
     On JSON parse failure, returns a minimal LLMEvaluation with recommendation="maybe"
@@ -164,17 +164,15 @@ def evaluate_listing(
         if cached:
             return cached
 
-    response = client.chat.completions.create(
-        model=model,
-        response_format={"type": "json_object"},
-        messages=[
+    raw = client.chat(
+        [
             {"role": "system", "content": build_system_prompt()},
             {"role": "user", "content": build_evaluation_prompt(scored, criteria)},
         ],
+        model=model,
         max_tokens=max_tokens,
+        json_mode=True,
     )
-
-    raw = response.choices[0].message.content or ""
 
     try:
         data = json.loads(raw)
@@ -219,7 +217,7 @@ def _evaluation_failure(url: str, exc: Exception) -> LLMEvaluation:
 
 
 def _evaluate_for_batch(
-    client: OpenAI,
+    client: LLMClient,
     scored: ScoredListing,
     criteria: dict,
     *,
@@ -257,7 +255,7 @@ def _rank_evaluations(
 
 
 def batch_evaluate(
-    client: OpenAI,
+    client: LLMClient,
     top_listings: list[ScoredListing],
     criteria: dict,
     *,

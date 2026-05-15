@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 import click
-from openai import OpenAI
+import yaml
 from rich.console import Console
 from rich.table import Table
 
@@ -47,6 +47,7 @@ from classify.rules import (
     score_listing,
 )
 from injest.job_boards import fetch_description, ingest_all, load_portals_config
+from providers import get_client
 
 console = Console()
 
@@ -494,7 +495,9 @@ def scan_command(
         return
 
     console.print(f"[bold cyan]Stage 3/3:[/] LLM evaluation ({llm_model})...")
-    client = OpenAI()
+    _cost_cfg_path = Path("data/api-cost-config.yaml")
+    _cost_cfg = yaml.safe_load(_cost_cfg_path.read_text()) if _cost_cfg_path.exists() else {}
+    client = get_client(_cost_cfg, stage="llm_evaluation")
     evaluated = batch_evaluate(
         client,
         top,

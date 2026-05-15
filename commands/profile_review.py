@@ -8,11 +8,11 @@ import click
 import yaml
 
 try:
-    from commands.auth import AuthError, get_openai_api_key
+    from commands.auth import AuthError
 except ModuleNotFoundError as exc:
     if exc.name != "commands":
         raise
-    from auth import AuthError, get_openai_api_key
+    from auth import AuthError
 
 
 DEFAULT_MODEL = "gpt-4.1-mini"
@@ -46,21 +46,19 @@ def review_profile(
     if not isinstance(profile, dict):
         raise ProfileReviewError(f"{profile_path} must contain a YAML mapping.")
 
-    get_openai_api_key()
-    try:
-        from openai import APIError, OpenAI, RateLimitError
-    except ImportError as exc:
-        raise ProfileReviewError(
-            "The openai package is not installed. Install requirements.txt first."
-        ) from exc
-
-    client = OpenAI()
+    from providers import get_client, validate_provider
+    from providers.base import LLMAPIError, LLMRateLimitError
 
     try:
-        response = client.chat.completions.create(
-            model=model or os.getenv("OPENAI_MODEL", DEFAULT_MODEL),
-            response_format={"type": "json_object"},
-            messages=[
+        validate_provider({})
+    except AuthError as exc:
+        raise ProfileReviewError(str(exc)) from exc
+
+    client = get_client({})
+
+    try:
+        content = client.chat(
+            [
                 {
                     "role": "system",
                     "content": (
@@ -78,28 +76,27 @@ def review_profile(
                     "content": _build_prompt(cv_text, profile_text, feedback),
                 },
             ],
+            model=model or os.getenv("OPENAI_MODEL", DEFAULT_MODEL),
+            max_tokens=2048,
+            json_mode=True,
         )
-    except RateLimitError as exc:
-        error_code = _openai_error_code(exc)
-        if error_code == "insufficient_quota":
+    except LLMRateLimitError as exc:
+        if exc.code == "insufficient_quota":
             raise ProfileReviewError(
-                "OpenAI rejected the request because the API key has insufficient quota. "
-                "Check billing/quota for the key, use a different OPENAI_API_KEY, or "
-                "set OPENAI_MODEL to a cheaper available model."
+                "The API key has insufficient quota. "
+                "Check billing/quota for the key or switch to a different provider."
             ) from exc
+        raise ProfileReviewError(f"Rate limit error: {exc}") from exc
+    except LLMAPIError as exc:
+        raise ProfileReviewError(f"API error: {exc}") from exc
 
-        raise ProfileReviewError(f"OpenAI rate limit error: {exc}") from exc
-    except APIError as exc:
-        raise ProfileReviewError(f"OpenAI API error: {exc}") from exc
-
-    content = response.choices[0].message.content
     if not content:
-        raise ProfileReviewError("OpenAI returned an empty profile review.")
+        raise ProfileReviewError("LLM returned an empty profile review.")
 
     try:
         result = json.loads(content)
     except json.JSONDecodeError as exc:
-        raise ProfileReviewError(f"OpenAI returned invalid JSON: {exc}") from exc
+        raise ProfileReviewError(f"LLM returned invalid JSON: {exc}") from exc
 
     _validate_review_result(result)
     return result
@@ -271,12 +268,6 @@ def _validate_profile(profile):
         raise ProfileReviewError(f"proposed_profile is missing: {missing_text}")
 
 
-def _openai_error_code(exc):
-    body = getattr(exc, "body", None)
-    if isinstance(body, dict):
-        return body.get("code")
-    return None
-
 
 @click.command("profile-review")
 @click.option(
@@ -308,7 +299,7 @@ def _openai_error_code(exc):
 @click.option(
     "--model",
     default=None,
-    help=f"OpenAI model to use. Defaults to OPENAI_MODEL or {DEFAULT_MODEL}.",
+    help=f"Model to use. Defaults to OPENAI_MODEL env var or {DEFAULT_MODEL}.",
 )
 @click.option(
     "--apply",

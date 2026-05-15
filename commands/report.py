@@ -20,11 +20,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
-from openai import OpenAI
 from rich.console import Console
 
 from classify.llm import LLMEvaluation
 from classify.rules import ScoredListing
+from providers.base import LLMClient
 from prompts.render import render_prompt
 
 console = Console()
@@ -124,7 +124,7 @@ DEFAULT_REPORT_MAX_TOKENS = 1500
 
 
 def generate_detailed_report(
-    client: OpenAI,
+    client: LLMClient,
     scored: ScoredListing,
     evaluation: LLMEvaluation,
     criteria: dict,
@@ -142,11 +142,8 @@ def generate_detailed_report(
         or "the candidate"
     )
 
-    response = client.chat.completions.create(
-        model=model,
-        response_format={"type": "json_object"},
-        max_tokens=max_tokens,
-        messages=[
+    raw = client.chat(
+        [
             {"role": "system", "content": build_report_system_prompt(candidate_name)},
             {
                 "role": "user",
@@ -155,9 +152,10 @@ def generate_detailed_report(
                 ),
             },
         ],
-    )
-
-    raw = response.choices[0].message.content or "{}"
+        model=model,
+        max_tokens=max_tokens,
+        json_mode=True,
+    ) or "{}"
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
@@ -305,7 +303,7 @@ def write_report_to_disk(report: DetailedReport, output_dir: Path = REPORTS_DIR)
 # ---------------------------------------------------------------------------
 
 def batch_generate_reports(
-    client: OpenAI,
+    client: LLMClient,
     evaluated: list[tuple[ScoredListing, LLMEvaluation]],
     criteria: dict,
     cv_text: str,
