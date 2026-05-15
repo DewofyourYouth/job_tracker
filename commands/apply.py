@@ -52,32 +52,44 @@ def _find_listing_by_url(url: str) -> dict | None:
 def _pick_listing_interactively() -> dict | None:
     rows = _load_listings()
 
-    scored = [r for r in rows if r.get("Score") or r.get("Rule Score")]
-    scored.sort(
-        key=lambda r: float(r.get("Score") or r.get("Rule Score") or 0),
-        reverse=True,
-    )
+    # Only surface listings the pipeline has evaluated and not marked skip.
+    candidates = [
+        r for r in rows
+        if r.get("Score") and r.get("Recommendation") in ("apply", "maybe")
+    ]
+    candidates.sort(key=lambda r: float(r.get("Score") or 0), reverse=True)
 
-    if not scored:
-        console.print("[yellow]No scored listings found in listings.csv. Run the pipeline first.[/]")
+    if not candidates:
+        console.print(
+            "[yellow]No pipeline-evaluated listings found.[/] "
+            "Run [bold]job pipeline[/] first to generate recommendations."
+        )
         return None
 
-    top = scored[:20]
-    table = Table(title="Top Listings — select one to apply", show_lines=False)
+    top = candidates[:20]
+
+    table = Table(title="Pipeline recommendations — select a listing to apply to", show_lines=False)
     table.add_column("#", style="dim", width=3)
-    table.add_column("Score", width=6)
-    table.add_column("Title", min_width=28)
-    table.add_column("Company", min_width=18)
-    table.add_column("Location", min_width=18)
+    table.add_column("Fit", width=4, justify="right")
+    table.add_column("Rec", width=7)
+    table.add_column("Title", min_width=26)
+    table.add_column("Company", min_width=16)
+    table.add_column("Location", min_width=16)
+    table.add_column("Summary", min_width=32)
 
     for i, row in enumerate(top, 1):
-        score = row.get("Score") or row.get("Rule Score") or "—"
+        rec = row.get("Recommendation", "")
+        rec_markup = f"[green]{rec}[/]" if rec == "apply" else f"[yellow]{rec}[/]"
+        summary = row.get("Fit Summary", "") or ""
+        summary_short = summary[:55].rstrip() + ("…" if len(summary) > 55 else "")
         table.add_row(
             str(i),
-            score,
+            row.get("Score", "—"),
+            rec_markup,
             row.get("Job Title", ""),
             row.get("Company", ""),
             row.get("Location", "") or "—",
+            summary_short,
         )
 
     console.print(table)

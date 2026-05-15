@@ -275,7 +275,7 @@ job pipeline --output-json output/pipeline.json
 
 Generates a tailored CV and cover letter for a specific job listing. One LLM call produces a structured JSON payload — tailored summary, competency tags, reweighted experience bullets, and a 3-paragraph cover letter — which is rendered into the HTML templates and exported to PDF via Playwright.
 
-URL is optional. Omit it to pick interactively from the scored listings in `data/listings.csv`.
+URL is optional. Omit it to pick interactively from the pipeline's recommendations. The picker shows only LLM-evaluated listings with a recommendation of `apply` or `maybe`, sorted by fit score, with the pipeline's fit summary visible so you can remind yourself why a listing scored well before committing. Listings marked `skip` are excluded. Run `job pipeline` before `job apply` to populate these recommendations.
 
 ```bash
 job apply <url>                      # apply to a specific listing
