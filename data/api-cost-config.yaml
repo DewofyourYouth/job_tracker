@@ -28,3 +28,9 @@ report_generation:
 # Stage 5 — local semantic scoring (downloads ~80 MB on first run, no ongoing API cost).
 semantic:
   model: all-MiniLM-L6-v2
+
+# apply — generates tailored CV + cover letter HTML for one listing.
+# One API call per run; higher token budget needed for full structured CV output.
+apply_generation:
+  model: gpt-4.1-mini
+  max_tokens: 3500

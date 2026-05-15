@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="{{LANG}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{NAME}} — Cover Letter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Space+Grotesk:wght@300..700&display=swap" rel="stylesheet">
+<style>
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11.5px;
+    line-height: 1.65;
+    color: #1a1a2e;
+    background: #ffffff;
+  }
+
+  .page {
+    width: 100%;
+    max-width: {{PAGE_WIDTH}};
+    margin: 0 auto;
+    padding: 18mm 20mm;
+  }
+
+  /* === HEADER === */
+  .header { margin-bottom: 28px; }
+
+  .header h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 30px;
+    font-weight: 700;
+    color: #1a1a2e;
+    letter-spacing: -0.01em;
+    margin-bottom: 3px;
+    line-height: 1.1;
+  }
+
+  .header-subtitle {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: hsl(187, 74%, 30%);
+    margin-bottom: 8px;
+    letter-spacing: 0.01em;
+  }
+
+  .header-rule {
+    height: 1.5px;
+    background: hsl(187, 74%, 32%);
+    border: none;
+    margin-bottom: 9px;
+  }
+
+  .contact-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10.5px;
+    line-height: 1.4;
+    color: #444;
+  }
+
+  .contact-row a { color: #444; text-decoration: none; }
+  .contact-row .separator { color: #bbb; }
+
+  a { white-space: nowrap; }
+
+  /* === META: date + recipient === */
+  .meta {
+    margin-bottom: 22px;
+    font-size: 11px;
+    color: #444;
+    line-height: 1.6;
+  }
+
+  .meta .date {
+    color: #666;
+    margin-bottom: 12px;
+  }
+
+  /* === RE LINE === */
+  .re-line {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1a1a2e;
+    border-bottom: 1px solid #d0d0d0;
+    padding-bottom: 6px;
+    margin-bottom: 22px;
+  }
+
+  /* === BODY === */
+  .body p {
+    margin-bottom: 14px;
+    font-size: 11.5px;
+    line-height: 1.72;
+    color: #1a1a2e;
+  }
+
+  .body p:last-child { margin-bottom: 0; }
+
+  /* === SIGNATURE === */
+  .signature {
+    margin-top: 32px;
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: #444;
+  }
+
+  .signature .sig-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1a2e;
+    margin-top: 5px;
+  }
+
+  /* === PRINT === */
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    .page { padding: 0; max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>{{NAME}}</h1>
+    <div class="header-subtitle">{{SUBTITLE}}</div>
+    <hr class="header-rule">
+    <div class="contact-row">
+      <span>{{PHONE}}</span>
+      <span class="separator">|</span>
+      <span>{{EMAIL}}</span>
+      <span class="separator">|</span>
+      <a href="{{PORTFOLIO_URL}}">{{PORTFOLIO_DISPLAY}}</a>
+      <span class="separator">|</span>
+      <span>{{LOCATION}}</span>
+    </div>
+  </div>
+
+  <!-- DATE + RECIPIENT -->
+  <div class="meta">
+    <div class="date">{{DATE}}</div>
+    <div>{{RECIPIENT}}</div>
+  </div>
+
+  <!-- RE LINE -->
+  <div class="re-line">Re: {{RE_LINE}}</div>
+
+  <!-- BODY -->
+  <div class="body">
+    {{BODY}}
+  </div>
+
+  <!-- SIGNATURE -->
+  <div class="signature">
+    <div>Regards,</div>
+    <div class="sig-name">{{NAME}}</div>
+  </div>
+
+</div>
+</body>
+</html>
