@@ -17,49 +17,45 @@
 # Relative importance of each rule-score dimension. Values are used as-is and
 # do not need to add up to 1.0.
 weights:
-  role_fit: 0.40
-  seniority: 0.20
-  location_remote: 0.15
-  tech_stack: 0.15
-  avoid_penalty: 0.10
-  semantic_fit: 0.00
+  role_fit: 0.40          # how well the job title/keywords match your target roles
+  seniority: 0.20         # whether the seniority level matches (senior, staff, etc.)
+  location_remote: 0.15   # remote/hybrid/onsite fit against your location preferences
+  tech_stack: 0.15        # overlap between posting keywords and your tech stack
+  avoid_penalty: 0.10     # penalty applied when avoid-role patterns appear in the title
+  semantic_fit: 0.00      # cosine similarity to your role archetypes (0 = disabled; enable in api-cost-config.yaml)
 
 # Funnel thresholds and override behavior.
+# top_n_for_llm has moved to data/api-cost-config.yaml (llm_evaluation.top_n).
 tolerances:
-  min_score_threshold: 0.35
-  top_n_for_llm: 100
-  salary_below_min_tolerance_pct: 0.10
-  location_override_role_fit: 0.80
-  min_title_keyword_hits: 1
+  min_score_threshold: 0.35       # listings scoring below this are dropped before LLM evaluation
+  salary_below_min_tolerance_pct: 0.10  # how far below your minimum salary a listing can be before a penalty is applied (0.10 = 10%)
+  location_override_role_fit: 0.80      # if location score is at or above this, a weak role_fit score is not penalised
+  min_title_keyword_hits: 1             # minimum number of title keyword matches required to pass the hard title filter
 
 # Raw score ladders before weights are applied.
 score_ladders:
   role_fit:
-    exact_archetype: 1.00
-    strong_keyword_multiple: 0.75
-    strong_keyword_single: 0.50
-    strong_keyword_multiple_min_hits: 2
-    weak_keyword: 0.30
-    no_match: 0.00
+    exact_archetype: 1.00               # title is one of your exact target archetypes
+    strong_keyword_multiple: 0.75       # title contains multiple strong role keywords
+    strong_keyword_single: 0.50         # title contains one strong role keyword
+    strong_keyword_multiple_min_hits: 2 # how many strong keywords are needed to qualify as "multiple"
+    weak_keyword: 0.30                  # title contains only weak/generic keywords
+    no_match: 0.00                      # no recognisable role keywords found
 
   acceptable_location:
-    remote: 1.00
-    hybrid: 0.85
-    onsite: 0.75
+    remote: 1.00   # fully remote — best case
+    hybrid: 0.85   # hybrid remote/onsite
+    onsite: 0.75   # onsite at an acceptable location (see profile.yaml)
 
   avoid:
-    hard_title: 0.20
-    soft_title: 0.60
-    clean: 1.00
+    hard_title: 0.20  # title matches a hard-disqualify avoid pattern — heavily penalised
+    soft_title: 0.60  # title matches a soft avoid pattern — mildly penalised
+    clean: 1.00       # no avoid patterns found — no penalty
 
   tech_stack:
-    # Used when no tech keywords are visible or descriptions have not been fetched.
-    zero_match_floor: 0.20
+    zero_match_floor: 0.20  # minimum score given even when no tech keywords match (avoids over-penalising sparse postings)
 
 # Post-score multipliers and reductions.
 adjustments:
   salary:
-    # Fraction removed from total score when salary is parseable, currency matches,
-    # and the listed salary is below the tolerated minimum.
-    below_min_penalty: 0.15
-
+    below_min_penalty: 0.15  # fraction subtracted from total score when stated salary is below your tolerated minimum

@@ -23,6 +23,7 @@ from typing import Optional
 from openai import OpenAI
 
 from classify.rules import ScoredListing
+from prompts.render import render_prompt
 
 
 # ---------------------------------------------------------------------------
@@ -46,91 +47,41 @@ class LLMEvaluation:
 # ---------------------------------------------------------------------------
 
 def build_system_prompt() -> str:
-    return (
-        "You are a senior technical recruiter evaluating software engineering job listings.\n"
-        "\n"
-        "SCORING RUBRIC (fit_score 1–10):\n"
-        "  9–10  Exceptional match — candidate should prioritise this.\n"
-        "  7–8   Good match OR strong wildcard/pivot opportunity.\n"
-        "  5–6   Mixed signals — apply only if pipeline is thin.\n"
-        "  1–4   Poor fit — skip.\n"
-        "\n"
-        "OUTPUT: reply with only valid JSON matching exactly this schema:\n"
-        "{\n"
-        '  "fit_score": <integer 1-10>,\n'
-        '  "fit_summary": "<2-3 sentence overall assessment>",\n'
-        '  "strengths": ["<strength>", ...],\n'
-        '  "red_flags": ["<concern>", ...],\n'
-        '  "recommendation": "<apply|maybe|skip>"\n'
-        "}\n"
-        "\n"
-        "CONSTRAINTS:\n"
-        "- strengths and red_flags: max 3 items each, ≤25 words per item.\n"
-        "- Flag as red flags: visa sponsorship requirements, severe stack mismatch,\n"
-        "  ops/admin-heavy roles, explicit on-site in non-preferred location,\n"
-        "  compensation clearly below candidate minimum.\n"
-        "- WILDCARD POTENTIAL: Be open to non-obvious fits. If the role requires \n"
-        "  skills the candidate doesn't explicitly have, but they are clearly a \n"
-        "  strong engineer who could adapt, or if the role sounds like an \n"
-        "  interesting pivot that leverages their core strengths, boost the \n"
-        "  fit_score and note it as a 'wildcard' strength.\n"
-        "- Do not repeat the candidate profile back verbatim.\n"
-        "- Output only the JSON object, no surrounding prose."
-    )
+    return render_prompt("llm_eval_system.md")
 
 
 def build_evaluation_prompt(scored: ScoredListing, criteria: dict) -> str:
-    """
-    Build the user-turn prompt for a single listing evaluation.
-
-    Includes a compact YAML-ish block:
-      CANDIDATE: target roles, avoid list, compensation, acceptable locations.
-      LISTING: title, company, location, rule scores, description (first 800 chars).
-      TASK: evaluate fit, return JSON.
-    """
     listing = scored.listing
     comp = criteria.get("compensation", {})
     rf = criteria.get("role_fit", {})
     avoid = criteria.get("avoid", {})
     loc_cfg = criteria.get("location_remote", {})
 
-    target_roles = rf.get("exact_archetypes", [])[:6]
-    avoid_roles = avoid.get("hard_disqualify", [])
-    acceptable_locs = loc_cfg.get("acceptable_onsite_locations", [])
-    min_comp = comp.get("minimum", 0)
-    target_comp = comp.get("target", 0)
-    currency = comp.get("currency", "")
-
-    rule_scores = "  ".join(
-        f"{name}: {c.raw_score:.2f}" for name, c in scored.criteria.items()
-    )
-
     desc = listing.description
     if desc:
         desc = desc[:800].strip()
-        if len(listing.description) > 800:
+        if len(listing.description or "") > 800:
             desc += "..."
     else:
         desc = "not fetched"
 
-    return (
-        f"CANDIDATE:\n"
-        f"  target_roles: {target_roles}\n"
-        f"  avoid: {avoid_roles}\n"
-        f"  acceptable_locations: {acceptable_locs}\n"
-        f"  compensation: min {min_comp} {currency}, target {target_comp} {currency}\n"
-        f"\n"
-        f"LISTING:\n"
-        f"  title: {listing.title}\n"
-        f"  company: {listing.company}\n"
-        f"  location: {listing.location or 'not specified'}\n"
-        f"  salary_hint: {listing.salary_hint or 'not specified'}\n"
-        f"  rule_scores: {rule_scores}\n"
-        f"  total_rule_score: {scored.total_score:.3f}\n"
-        f"  description: |\n"
-        f"    {desc}\n"
-        f"\n"
-        f"TASK: Evaluate fit. Return JSON only."
+    return render_prompt(
+        "llm_eval_user.md",
+        target_roles=rf.get("exact_archetypes", [])[:6],
+        avoid_roles=avoid.get("hard_disqualify", []),
+        acceptable_locs=loc_cfg.get("acceptable_onsite_locations", []),
+        min_comp=comp.get("minimum", 0),
+        target_comp=comp.get("target", 0),
+        currency=comp.get("currency", ""),
+        rule_scores="  ".join(
+            f"{name}: {c.raw_score:.2f}" for name, c in scored.criteria.items()
+        ),
+        total_score=f"{scored.total_score:.3f}",
+        title=listing.title,
+        company=listing.company,
+        location=listing.location or "not specified",
+        salary_hint=listing.salary_hint or "not specified",
+        description=desc,
     )
 
 
@@ -140,6 +91,7 @@ def build_evaluation_prompt(scored: ScoredListing, criteria: dict) -> str:
 
 CACHE_DIR = Path("output/llm_cache")
 DEFAULT_LLM_CONCURRENCY = 5
+DEFAULT_LLM_MAX_TOKENS = 512
 _CACHE_LOCK = Lock()
 _IndexedEvaluation = tuple[int, ScoredListing, LLMEvaluation]
 
@@ -198,6 +150,7 @@ def evaluate_listing(
     *,
     model: str = "gpt-4o",
     use_cache: bool = True,
+    max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
 ) -> LLMEvaluation:
     """
     Evaluate one listing via the OpenAI API.
@@ -218,7 +171,7 @@ def evaluate_listing(
             {"role": "system", "content": build_system_prompt()},
             {"role": "user", "content": build_evaluation_prompt(scored, criteria)},
         ],
-        max_tokens=512,
+        max_tokens=max_tokens,
     )
 
     raw = response.choices[0].message.content or ""
@@ -272,6 +225,7 @@ def _evaluate_for_batch(
     *,
     model: str,
     use_cache: bool,
+    max_tokens: int,
 ) -> LLMEvaluation:
     try:
         return evaluate_listing(
@@ -280,6 +234,7 @@ def _evaluate_for_batch(
             criteria,
             model=model,
             use_cache=use_cache,
+            max_tokens=max_tokens,
         )
     except Exception as exc:
         warnings.warn(f"LLM evaluation failed for {scored.listing.url}: {exc}")
@@ -309,6 +264,7 @@ def batch_evaluate(
     model: str = "gpt-4o",
     use_cache: bool = True,
     concurrency: int = DEFAULT_LLM_CONCURRENCY,
+    max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
 ) -> list[tuple[ScoredListing, LLMEvaluation]]:
     """
     Evaluate all top listings and return (scored, evaluation) pairs sorted by
@@ -333,6 +289,7 @@ def batch_evaluate(
                     criteria,
                     model=model,
                     use_cache=use_cache,
+                    max_tokens=max_tokens,
                 ),
             )
             for index, scored in iterator
@@ -350,6 +307,7 @@ def batch_evaluate(
                 criteria,
                 model=model,
                 use_cache=use_cache,
+                max_tokens=max_tokens,
             )
             futures_by_index[future] = (index, scored)
 

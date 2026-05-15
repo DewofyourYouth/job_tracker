@@ -1,0 +1,30 @@
+# API cost configuration for the job-report pipeline.
+# Edit this file to control which models are used and how many API calls are made.
+#
+# Stage 2: Criteria generation  — one-off call; only runs when scoring_criteria.yaml is absent.
+# Stage 5: Semantic scoring     — local model, no API cost.
+# Stage 6: LLM evaluation       — one call per listing forwarded from the rule scorer.
+# Stage 7: Report generation    — one call per listing that scores >= report_generation.min_score.
+
+# Stage 2 — generate scoring_criteria.yaml from your CV + profile.
+criteria_generation:
+  model: gpt-4.1-mini
+  max_tokens: 2048
+
+# Stage 6 — quick fit evaluation of the top-N rule-scored listings.
+llm_evaluation:
+  model: gpt-4.1-nano
+  max_tokens: 512
+  concurrency: 5   # parallel API calls; raise for faster runs, lower to avoid rate limits
+  top_n: 20        # listings forwarded to this stage — the primary cost lever
+
+# Stage 7 — detailed per-listing markdown reports.
+report_generation:
+  model: gpt-4.1-mini
+  max_tokens: 1500
+  min_score: 7     # minimum fit_score (0–10) required to generate a report
+  top_n: 5         # cap on reports generated; null = no cap (all qualifying listings)
+
+# Stage 5 — local semantic scoring (downloads ~80 MB on first run, no ongoing API cost).
+semantic:
+  model: all-MiniLM-L6-v2

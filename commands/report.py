@@ -25,6 +25,7 @@ from rich.console import Console
 
 from classify.llm import LLMEvaluation
 from classify.rules import ScoredListing
+from prompts.render import render_prompt
 
 console = Console()
 
@@ -73,58 +74,11 @@ class DetailedReport:
 # ---------------------------------------------------------------------------
 
 def build_report_system_prompt(candidate_name: str) -> str:
-    return f"""You are a senior career advisor writing detailed job-fit evaluation reports \
-for {candidate_name}, a software engineer based in Israel looking for remote or \
-Israel-based senior engineering roles.
-
-Your reports are honest, specific, and directly actionable. You reference the \
-candidate's actual CV projects and past employers. You flag structural blockers \
-(e.g. "Remote (United States)" restrictions) prominently.
-
-Scoring is on a 0–5 scale:
-  5.0  Perfect match — apply immediately.
-  4.0–4.9  Strong match — worth a careful application.
-  3.0–3.9  Solid but gated — apply if the main concern can be resolved.
-  2.0–2.9  Mixed signals — low priority.
-  0–1.9   Poor fit — skip.
-
-OUTPUT: reply with only valid JSON matching exactly this schema:
-{{
-  "legitimacy": "<High Confidence|Medium Confidence|Low Confidence|Suspicious>",
-  "global_score": <float 0.0–5.0>,
-  "cv_match": {{
-    "bullets": "<paragraph covering Skills, Experience, Proof Points, and Gaps>",
-    "score": <float 0.0–5.0>,
-    "summary": "<one sentence bottom line, e.g. 'CV Match: 3.5/5 — ...'>"
-  }},
-  "north_star": "<paragraph: archetype match, role fit, and how to frame the application>",
-  "comp": {{
-    "stated_range": "<salary range from posting or 'not stated'>",
-    "company_rep": "<series, funding, known customers — credibility of comp offer>",
-    "location_context": "<any Israel/international hiring implications>",
-    "assessment": "<bottom-line comp assessment>"
-  }},
-  "cultural_signals": {{
-    "remote_policy": "<what the posting says about remote — flag US-only if present>",
-    "company_size": "<estimated headcount and stage>",
-    "engineering_culture": "<signals from the posting about eng culture>",
-    "timezone": "<timezone overlap implications for Israel-based candidate>"
-  }},
-  "red_flags": ["<flag 1>", "<flag 2>", ...],
-  "global_score_rationale": "<2–4 sentence explanation of the global score. End with a clear action recommendation.>",
-  "posting_legitimacy": {{
-    "detail": "<bullet evidence for why this posting is real or suspect>",
-    "verdict": "<High Confidence|Medium Confidence|Low Confidence|Suspicious> — one sentence>"
-  }}
-}}
-
-CONSTRAINTS:
-- Reference the candidate by first name ({candidate_name.split()[0]}).
-- Cite specific CV projects, employers, and technologies by name.
-- Do not invent facts not present in the CV or posting.
-- Flag "Remote (United States)" or similar US-only language as a significant concern.
-- Output only the JSON object, no surrounding prose or markdown fences.
-"""
+    return render_prompt(
+        "report_system.md",
+        candidate_name=candidate_name,
+        first_name=candidate_name.split()[0],
+    )
 
 
 def build_report_user_prompt(
@@ -135,41 +89,39 @@ def build_report_user_prompt(
     profile_text: str,
 ) -> str:
     listing = scored.listing
-    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-    rule_scores = "  ".join(
-        f"{name}: {c.raw_score:.2f}" for name, c in scored.criteria.items()
-    )
 
     desc = listing.description or "not fetched"
     if len(desc) > 2000:
         desc = desc[:2000].strip() + "..."
 
-    return (
-        f"Date: {date_str}\n\n"
-        f"--- CV ---\n{cv_text}\n\n"
-        f"--- PROFILE ---\n{profile_text}\n\n"
-        f"--- LISTING ---\n"
-        f"Title:       {listing.title}\n"
-        f"Company:     {listing.company}\n"
-        f"URL:         {listing.url}\n"
-        f"Location:    {listing.location or 'not specified'}\n"
-        f"Salary hint: {listing.salary_hint or 'not specified'}\n"
-        f"Rule scores: {rule_scores}\n"
-        f"Total rule:  {scored.total_score:.3f}\n\n"
-        f"Quick LLM evaluation (for calibration — do not copy verbatim):\n"
-        f"  fit_score: {evaluation.fit_score}/10\n"
-        f"  summary: {evaluation.fit_summary}\n"
-        f"  strengths: {evaluation.strengths}\n"
-        f"  red_flags: {evaluation.red_flags}\n\n"
-        f"--- JOB DESCRIPTION ---\n{desc}\n\n"
-        f"TASK: Write a detailed job-fit report for this listing. Return JSON only."
+    return render_prompt(
+        "report_user.md",
+        date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        cv_text=cv_text,
+        profile_text=profile_text,
+        title=listing.title,
+        company=listing.company,
+        url=listing.url,
+        location=listing.location or "not specified",
+        salary_hint=listing.salary_hint or "not specified",
+        rule_scores="  ".join(
+            f"{name}: {c.raw_score:.2f}" for name, c in scored.criteria.items()
+        ),
+        total_score=f"{scored.total_score:.3f}",
+        fit_score=evaluation.fit_score,
+        fit_summary=evaluation.fit_summary,
+        strengths=evaluation.strengths,
+        red_flags=evaluation.red_flags,
+        description=desc,
     )
 
 
 # ---------------------------------------------------------------------------
 # Report generation
 # ---------------------------------------------------------------------------
+
+DEFAULT_REPORT_MAX_TOKENS = 1500
+
 
 def generate_detailed_report(
     client: OpenAI,
@@ -180,6 +132,7 @@ def generate_detailed_report(
     profile_text: str,
     *,
     model: str = "gpt-4o",
+    max_tokens: int = DEFAULT_REPORT_MAX_TOKENS,
 ) -> DetailedReport:
     """Call the LLM to produce a detailed report for one listing."""
     profile = yaml.safe_load(profile_text) or {}
@@ -192,7 +145,7 @@ def generate_detailed_report(
     response = client.chat.completions.create(
         model=model,
         response_format={"type": "json_object"},
-        max_tokens=1500,
+        max_tokens=max_tokens,
         messages=[
             {"role": "system", "content": build_report_system_prompt(candidate_name)},
             {
@@ -359,6 +312,7 @@ def batch_generate_reports(
     profile_text: str,
     *,
     model: str = "gpt-4o",
+    max_tokens: int = DEFAULT_REPORT_MAX_TOKENS,
     top_n: int | None = None,
     min_llm_score: int = 5,
     output_dir: Path = REPORTS_DIR,
@@ -403,6 +357,7 @@ def batch_generate_reports(
                 cv_text,
                 profile_text,
                 model=model,
+                max_tokens=max_tokens,
             )
             path = write_report_to_disk(report, output_dir)
             paths[scored.listing.url] = path

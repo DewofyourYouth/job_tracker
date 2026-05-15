@@ -22,10 +22,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import click
+import yaml
 from openai import OpenAI
 from rich.console import Console
 
-from classify.llm import DEFAULT_LLM_CONCURRENCY, LLMEvaluation, batch_evaluate
+from classify.llm import DEFAULT_LLM_CONCURRENCY, DEFAULT_LLM_MAX_TOKENS, LLMEvaluation, batch_evaluate
 from classify.rules import (
     DEFAULT_TUNING_PATH,
     RawListing,
@@ -44,7 +45,7 @@ from commands.generate_criteria import (
     inject_meta,
     strip_fences,
 )
-from commands.report import REPORTS_DIR, batch_generate_reports
+from commands.report import DEFAULT_REPORT_MAX_TOKENS, REPORTS_DIR, batch_generate_reports
 from commands.scan import (
     apply_portals_title_filter,
     display_results,
@@ -59,6 +60,13 @@ CV_PATH = Path("data/cv.md")
 PROFILE_PATH = Path("data/profile.yaml")
 CRITERIA_PATH = Path("data/scoring_criteria.yaml")
 PORTALS_PATH = Path("data/portals.yaml")
+API_COST_CONFIG_PATH = Path("data/api-cost-config.yaml")
+
+
+def load_api_cost_config(path: Path = API_COST_CONFIG_PATH) -> dict:
+    if not path.exists():
+        return {}
+    return yaml.safe_load(path.read_text()) or {}
 
 
 class ReportsPipeline:
@@ -106,6 +114,7 @@ class ReportsPipeline:
         self,
         criteria_path: Path = CRITERIA_PATH,
         model: str = "gpt-4o",
+        max_tokens: int = 2048,
     ) -> ReportsPipeline:
         """Load existing scoring criteria, or call OpenAI to generate them."""
         if not criteria_path.exists():
@@ -114,7 +123,7 @@ class ReportsPipeline:
                 f"via OpenAI ({model})..."
             )
             _generate_criteria_file(
-                self.cv_text, self.profile_text, criteria_path, model
+                self.cv_text, self.profile_text, criteria_path, model, max_tokens
             )
         else:
             console.print(
@@ -132,6 +141,7 @@ class ReportsPipeline:
         self,
         portals_path: Path = PORTALS_PATH,
         tuning_path: Path = DEFAULT_TUNING_PATH,
+        top_n_for_llm: int | None = None,
     ) -> ReportsPipeline:
         """Fetch raw job listings from all enabled portals.yaml sources."""
         self.portals_config = load_portals_config(portals_path)
@@ -141,6 +151,8 @@ class ReportsPipeline:
             required=tuning_path != DEFAULT_TUNING_PATH,
         )
         self.config = config_from_criteria(self.criteria, self.tuning)
+        if top_n_for_llm is not None:
+            self.config.tolerances.top_n_for_llm = top_n_for_llm
         console.print("[bold cyan]Stage 3/7:[/] Scanning job boards...")
         self.raw_listings = ingest_all(self.portals_config)
         # Candidates start as the full raw list; eliminate_irrelevant_jobs narrows them.
@@ -173,7 +185,7 @@ class ReportsPipeline:
     # Stage 5
     # -------------------------------------------------------------------------
 
-    def score_relevant_positions(self) -> ReportsPipeline:
+    def score_relevant_positions(self, semantic_model: str | None = None) -> ReportsPipeline:
         """Apply weighted rule scoring (+ semantic if enabled); sort and narrow to top N for LLM."""
         if self.config.weights.semantic_fit > 0:
             from classify.semantic import scorer_from_criteria
@@ -181,6 +193,8 @@ class ReportsPipeline:
                 f"[bold cyan]Stage 5/7:[/] Loading semantic model "
                 f"(first run downloads ~80 MB)..."
             )
+            if semantic_model:
+                self.criteria.setdefault("semantic", {})["model"] = semantic_model
             self.config.semantic_scorer = scorer_from_criteria(self.criteria)
 
         self.top_listings, self.rest_listings = rank_and_narrow(
@@ -206,6 +220,7 @@ class ReportsPipeline:
         model: str = "gpt-4o",
         use_cache: bool = True,
         concurrency: int = DEFAULT_LLM_CONCURRENCY,
+        max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
     ) -> ReportsPipeline:
         """Quick LLM evaluation of top-N rule-scored listings."""
         if self.top_listings:
@@ -226,6 +241,7 @@ class ReportsPipeline:
             model=model,
             use_cache=use_cache,
             concurrency=concurrency,
+            max_tokens=max_tokens,
         )
         return self
 
@@ -240,6 +256,7 @@ class ReportsPipeline:
         detailed_top_n: int | None = None,
         min_report_score: int = 5,
         report_model: str = "gpt-4o",
+        report_max_tokens: int = DEFAULT_REPORT_MAX_TOKENS,
     ) -> ReportsPipeline:
         """Display the ranked results table, write detailed markdown reports, and optionally JSON."""
         console.print("[bold cyan]Stage 7/7:[/] Generating reports...")
@@ -258,6 +275,7 @@ class ReportsPipeline:
                 self.cv_text,
                 self.profile_text,
                 model=report_model,
+                max_tokens=report_max_tokens,
                 top_n=detailed_top_n,
                 min_llm_score=min_report_score,
                 output_dir=reports_dir,
@@ -280,6 +298,7 @@ def _generate_criteria_file(
     profile_text: str,
     output_path: Path,
     model: str,
+    max_tokens: int = 2048,
 ) -> None:
     """
     Call the OpenAI API to write scoring_criteria.yaml from the CV + profile.
@@ -293,7 +312,7 @@ def _generate_criteria_file(
     client = OpenAI()
     response = client.chat.completions.create(
         model=model,
-        max_tokens=2048,
+        max_tokens=max_tokens,
         messages=[
             {"role": "system", "content": build_system_prompt()},
             {"role": "user", "content": build_user_message(cv_text, profile_text)},
@@ -315,32 +334,53 @@ def _generate_criteria_file(
 
 def build_reports_pipeline(
     output_json: Path | None = None,
-    llm_model: str = "gpt-4o",
-    llm_concurrency: int = DEFAULT_LLM_CONCURRENCY,
+    llm_model: str | None = None,
+    llm_concurrency: int | None = None,
     use_cache: bool = True,
     detailed_top_n: int | None = None,
-    min_report_score: int = 5,
+    min_report_score: int | None = None,
     reports_dir: Path = REPORTS_DIR,
     tuning_path: Path = DEFAULT_TUNING_PATH,
 ) -> None:
     """Run the full end-to-end pipeline and write detailed markdown job reports."""
+    cfg = load_api_cost_config()
+    crit_cfg = cfg.get("criteria_generation", {})
+    eval_cfg = cfg.get("llm_evaluation", {})
+    rep_cfg = cfg.get("report_generation", {})
+    sem_cfg = cfg.get("semantic", {})
+
+    _crit_model = crit_cfg.get("model", "gpt-4o")
+    _crit_max_tokens = int(crit_cfg.get("max_tokens", 2048))
+    _eval_model = llm_model if llm_model is not None else eval_cfg.get("model", "gpt-4o")
+    _eval_max_tokens = int(eval_cfg.get("max_tokens", DEFAULT_LLM_MAX_TOKENS))
+    _concurrency = llm_concurrency if llm_concurrency is not None else int(eval_cfg.get("concurrency", DEFAULT_LLM_CONCURRENCY))
+    _top_n_for_llm = int(eval_cfg.get("top_n", 100))
+    _report_model = rep_cfg.get("model", "gpt-4o")
+    _report_max_tokens = int(rep_cfg.get("max_tokens", DEFAULT_REPORT_MAX_TOKENS))
+    _min_score = min_report_score if min_report_score is not None else int(rep_cfg.get("min_score", 5))
+    _reports_top_n = detailed_top_n if detailed_top_n is not None else rep_cfg.get("top_n")
+    _semantic_model = sem_cfg.get("model") or None
+
     (
         ReportsPipeline()
         .read_profile_and_cv()
-        .generate_criteria()
-        .scan_for_jobs(tuning_path=tuning_path)
+        .generate_criteria(model=_crit_model, max_tokens=_crit_max_tokens)
+        .scan_for_jobs(tuning_path=tuning_path, top_n_for_llm=_top_n_for_llm)
         .eliminate_irrelevant_jobs()
-        .score_relevant_positions()
+        .score_relevant_positions(semantic_model=_semantic_model)
         .analyze_remaining_positions(
-            model=llm_model,
+            model=_eval_model,
+            max_tokens=_eval_max_tokens,
             use_cache=use_cache,
-            concurrency=llm_concurrency,
+            concurrency=_concurrency,
         )
         .generate_reports(
             output_json=output_json,
             reports_dir=reports_dir,
-            detailed_top_n=detailed_top_n,
-            min_report_score=min_report_score,
+            detailed_top_n=_reports_top_n,
+            min_report_score=_min_score,
+            report_model=_report_model,
+            report_max_tokens=_report_max_tokens,
         )
     )
 
@@ -358,16 +398,14 @@ def build_reports_pipeline(
 )
 @click.option(
     "--llm-model",
-    default="gpt-4o",
-    show_default=True,
-    help="OpenAI model for LLM evaluation and report generation.",
+    default=None,
+    help="OpenAI model for LLM evaluation (overrides api-cost-config.yaml).",
 )
 @click.option(
     "--llm-concurrency",
-    default=DEFAULT_LLM_CONCURRENCY,
-    show_default=True,
+    default=None,
     type=click.IntRange(1, 32),
-    help="Concurrent quick LLM evaluations to run.",
+    help="Concurrent quick LLM evaluations to run (overrides api-cost-config.yaml).",
 )
 @click.option(
     "--no-cache",
@@ -398,10 +436,9 @@ def build_reports_pipeline(
 )
 @click.option(
     "--min-report-score",
-    default=5,
-    show_default=True,
+    default=None,
     type=int,
-    help="Minimum LLM fit_score (0–10) required to generate a detailed report.",
+    help="Minimum LLM fit_score (0–10) required to generate a detailed report (overrides api-cost-config.yaml).",
 )
 def pipeline_command(
     output_json: str | None,
