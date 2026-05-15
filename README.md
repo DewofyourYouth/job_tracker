@@ -20,6 +20,7 @@ Rather than triaging listings manually or throwing every job description at an L
 - **Evaluation-oriented thinking** — the pipeline is designed to be auditable. Every stage has structured outputs. LLM results are cached by input hash so reruns don't re-spend. Scoring logic is separated from criteria so you can tune one without touching the other.
 - **Local-first data ownership** — all personal data (CV, profile, listings, reports, LLM cache) stays on disk. Nothing is sent to an external service except the LLM API call itself.
 - **Human-in-the-loop by default** — the pipeline surfaces candidates and writes reports, but apply/skip decisions remain manual. Profile review changes require explicit confirmation before writing.
+- **End-to-end application material generation** — `job apply` calls the LLM once per listing to produce tailored CV content and a cover letter, renders them into HTML templates, and exports PDFs via Playwright's CDP interface to system Chrome (the only reliable way to suppress Chrome's date/title overlay in headless mode).
 - **Backend automation patterns** — concurrent LLM evaluation with bounded thread pools, URL-keyed CSV upserts, file-based caching, Jinja2 prompt templates, Click CLI with per-stage overrides.
 - **Separation of concerns** — scoring weights live in one file, scoring criteria in another, API cost config in a third. Each can be modified independently without touching code.
 
@@ -99,7 +100,8 @@ job-tracker/
 │   ├── scan.py                # Discovery + scoring + LLM evaluation
 │   ├── generate_criteria.py   # LLM-assisted criteria generation from CV + profile
 │   ├── report.py              # Detailed markdown report generation
-│   └── profile_review.py      # CV ↔ profile consistency review
+│   ├── profile_review.py      # CV ↔ profile consistency review
+│   └── apply.py               # Tailored CV + cover letter generation and PDF export
 ├── classify/
 │   ├── score.py               # Rule-based scoring engine
 │   ├── llm.py                 # Quick LLM evaluation (cached)
@@ -112,7 +114,12 @@ job-tracker/
 │   ├── report_system.md       # Report generation system prompt
 │   ├── report_user.md         # Report generation user message template
 │   ├── criteria_system.md     # Criteria generation system prompt
-│   └── criteria_user.md       # Criteria generation user message template
+│   ├── criteria_user.md       # Criteria generation user message template
+│   ├── apply_system.md        # Application material generation system prompt
+│   └── apply_user.md          # Application material generation user message template
+├── templates/
+│   ├── cv-template.html       # HTML/CSS CV template (Space Grotesk + DM Sans, print-optimised)
+│   └── cl-template.html       # HTML/CSS cover letter template
 └── data/
     ├── cv.md                  # Private — full CV text
     ├── profile.yaml           # Private — structured candidate profile
@@ -130,6 +137,7 @@ job-tracker/
 - `data/api-cost-config.yaml` → model selection, token budgets, concurrency, volume controls
 - `output/llm_cache/` → hash-keyed evaluation cache (skips re-evaluation on rerun)
 - `output/reports/` → URL-keyed markdown reports (skips regeneration if report exists)
+- `data/listings.csv` + `data/cv.md` → `apply` → `output/applications/<slug>/cv.pdf` + `cover-letter.pdf`
 
 ---
 
@@ -250,6 +258,30 @@ job pipeline --tuning-config data/scoring_tuning.yaml
 job pipeline --output-json output/pipeline.json
 ```
 
+### `apply`
+
+Generates a tailored CV and cover letter for a specific job listing. One LLM call produces a structured JSON payload — tailored summary, competency tags, reweighted experience bullets, and a 3-paragraph cover letter — which is rendered into the HTML templates and exported to PDF via Playwright.
+
+URL is optional. Omit it to pick interactively from the scored listings in `data/listings.csv`.
+
+```bash
+job apply <url>                      # apply to a specific listing
+job apply                            # pick interactively from listings.csv
+job apply <url> --pdf                # also export PDFs
+job apply <url> --pdf --open         # export PDFs and open them
+job apply <url> --no-cover-letter    # CV only
+job apply <url> --model gpt-4.1      # override model for this run
+job apply <url> --output-dir ~/Desktop/application
+```
+
+Output goes to `output/applications/<company>-<title>-<hash>/`:
+- `cv.html` / `cv.pdf`
+- `cover-letter.html` / `cover-letter.pdf`
+
+PDF export requires Playwright (`pip install playwright`) using your installed Google Chrome — no separate browser binary is downloaded.
+
+The model, token budget, and default margins are configurable in `data/api-cost-config.yaml` under `apply_generation`.
+
 ---
 
 ## Configuration
@@ -289,6 +321,10 @@ report_generation:
 
 semantic:
   model: all-MiniLM-L6-v2   # local; no API call
+
+apply_generation:
+  model: gpt-4.1-mini   # one call per listing; higher token budget for full CV output
+  max_tokens: 3500
 ```
 
 CLI flags override config values for a single run.
@@ -320,11 +356,6 @@ CLI flags override config values for a single run.
 
 - Status lifecycle: `DISCOVERED → TRIAGED → APPLY_READY → APPLIED → CONFIRMED → INTERVIEW → OFFER/REJECTED/ARCHIVED`.
 - Email-based status detection for application receipts, rejections, and interview requests.
-
-### Tailored application materials
-
-- LLM-assisted CV tailoring: given a target job description and the base CV, recommend emphasis, ordering, and wording changes. The model improves prioritisation; it does not invent experience.
-- Jinja2 HTML template rendering for CV output → PDF export.
 
 ### TUI
 
