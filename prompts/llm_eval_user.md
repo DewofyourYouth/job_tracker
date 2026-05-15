@@ -3,6 +3,13 @@ CANDIDATE:
   avoid: {{ avoid_roles }}
   acceptable_locations: {{ acceptable_locs }}
   compensation: min {{ min_comp }} {{ currency }}, target {{ target_comp }} {{ currency }}
+{% if candidate_summary %}
+  profile: |
+    {{ candidate_summary | indent(4) }}
+{% endif %}
+{% if tech_stack %}
+  tech_stack: {{ tech_stack }}
+{% endif %}
 
 LISTING:
   title: {{ title }}

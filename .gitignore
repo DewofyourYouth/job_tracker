@@ -3,6 +3,7 @@ data/cv.md
 data/profile.yaml
 data/portals.yaml
 data/scoring-criteria.yaml
+data/llm-eval-system.md
 data/scoring-tuning.yaml
 data/listings.csv
 .env

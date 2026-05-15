@@ -34,6 +34,7 @@ from classify.rules import (
     config_from_criteria,
     load_criteria,
     load_tuning_config,
+    needs_description_for_scoring,
     passes_hard_rules,
     rank_and_narrow,
     score_listing,
@@ -41,6 +42,7 @@ from classify.rules import (
 from commands.generate_criteria import (
     build_system_prompt,
     build_user_message,
+    generate_eval_system_prompt,
     inject_meta,
     strip_fences,
 )
@@ -67,6 +69,52 @@ def load_api_cost_config(path: Path = API_COST_CONFIG_PATH) -> dict:
     if not path.exists():
         return {}
     return yaml.safe_load(path.read_text()) or {}
+
+
+def _fetch_descriptions_for_vague_listings(
+    listings: list[RawListing],
+    *,
+    concurrency: int = 10,
+) -> dict[str, RawListing]:
+    """
+    Fetch descriptions in parallel for tracked listings whose title gave no keyword signal.
+    Returns a url→enriched_listing map; failures silently keep the original.
+    """
+    import warnings
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _safe_fetch(listing: RawListing) -> tuple[str, RawListing]:
+        try:
+            return listing.url, fetch_description(listing)
+        except Exception as exc:
+            warnings.warn(f"[description_prefetch] {listing.url}: {exc}")
+            return listing.url, listing
+
+    result: dict[str, RawListing] = {}
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        futures = {pool.submit(_safe_fetch, l): l for l in listings}
+        for future in as_completed(futures):
+            url, enriched = future.result()
+            result[url] = enriched
+    return result
+
+
+def _extract_candidate_summary(profile_text: str) -> str:
+    """Build a brief candidate summary from profile.yaml for LLM evaluation context."""
+    try:
+        profile = yaml.safe_load(profile_text) or {}
+    except Exception:
+        return ""
+    narrative = profile.get("narrative", {})
+    headline = narrative.get("headline", "")
+    superpowers = narrative.get("superpowers", [])
+    lines = []
+    if headline:
+        lines.append(f"Headline: {headline}")
+    if superpowers:
+        lines.append("Key strengths:")
+        lines.extend(f"- {s}" for s in superpowers[:6])
+    return "\n".join(lines)
 
 
 class ReportsPipeline:
@@ -179,6 +227,18 @@ class ReportsPipeline:
             f"[red]{eliminated}[/] eliminated, "
             f"[green]{len(self.candidates)}[/] surviving."
         )
+
+        # Fetch descriptions for tracked-company listings with vague titles so
+        # the scorer can use content (tech stack, role keywords) rather than
+        # guessing from the title alone.
+        vague = [l for l in self.candidates if needs_description_for_scoring(l, self.criteria)]
+        if vague:
+            console.print(
+                f"  Fetching descriptions for [bold]{len(vague)}[/] vague tracked listings..."
+            )
+            enriched = _fetch_descriptions_for_vague_listings(vague)
+            self.candidates = [enriched.get(l.url, l) for l in self.candidates]
+
         upsert_listings_csv(raw=self.candidates)
         return self
 
@@ -243,6 +303,7 @@ class ReportsPipeline:
             use_cache=use_cache,
             concurrency=concurrency,
             max_tokens=max_tokens,
+            candidate_summary=_extract_candidate_summary(self.profile_text),
         )
         return self
 
@@ -326,6 +387,7 @@ def _generate_criteria_file(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(final_yaml)
     console.print(f"  Written to [bold]{output_path}[/].")
+    generate_eval_system_prompt(profile_text)
 
 
 # ---------------------------------------------------------------------------

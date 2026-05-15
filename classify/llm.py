@@ -46,16 +46,32 @@ class LLMEvaluation:
 # Prompt construction
 # ---------------------------------------------------------------------------
 
+_GENERATED_SYSTEM_PROMPT = Path("data/llm-eval-system.md")
+
+
 def build_system_prompt() -> str:
-    return render_prompt("llm_eval_system.md")
+    """Read the generated candidate-specific system prompt if available, else render the template."""
+    if _GENERATED_SYSTEM_PROMPT.exists():
+        return _GENERATED_SYSTEM_PROMPT.read_text().strip()
+    # Fallback: render the template with a generic placeholder so the pipeline
+    # doesn't crash before generate-criteria has been run.
+    return render_prompt(
+        "llm_eval_system.md",
+        location_context="Use the candidate's location and visa information from the user message to assess geographic fit.",
+    )
 
 
-def build_evaluation_prompt(scored: ScoredListing, criteria: dict) -> str:
+def build_evaluation_prompt(
+    scored: ScoredListing,
+    criteria: dict,
+    candidate_summary: str = "",
+) -> str:
     listing = scored.listing
     comp = criteria.get("compensation", {})
     rf = criteria.get("role_fit", {})
     avoid = criteria.get("avoid", {})
     loc_cfg = criteria.get("location_remote", {})
+    tech_stack = criteria.get("tech_stack", {}).get("keywords", [])
 
     desc = listing.description
     if desc:
@@ -73,6 +89,8 @@ def build_evaluation_prompt(scored: ScoredListing, criteria: dict) -> str:
         min_comp=comp.get("minimum", 0),
         target_comp=comp.get("target", 0),
         currency=comp.get("currency", ""),
+        candidate_summary=candidate_summary,
+        tech_stack=tech_stack,
         rule_scores="  ".join(
             f"{name}: {c.raw_score:.2f}" for name, c in scored.criteria.items()
         ),
@@ -96,7 +114,7 @@ _CACHE_LOCK = Lock()
 _IndexedEvaluation = tuple[int, ScoredListing, LLMEvaluation]
 
 
-def _cache_key(scored: ScoredListing, criteria: dict, model: str) -> str:
+def _cache_key(scored: ScoredListing, criteria: dict, model: str, candidate_summary: str = "") -> str:
     """Fingerprint the full evaluation context, not just the listing URL."""
     listing = scored.listing
     payload = {
@@ -117,13 +135,14 @@ def _cache_key(scored: ScoredListing, criteria: dict, model: str) -> str:
         "total_rule_score": scored.total_score,
         "criteria": criteria,
         "model": model,
+        "candidate_summary": candidate_summary,
     }
     raw = json.dumps(payload, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
-def _load_cached(scored: ScoredListing, criteria: dict, model: str) -> Optional[LLMEvaluation]:
-    path = CACHE_DIR / f"{_cache_key(scored, criteria, model)}.json"
+def _load_cached(scored: ScoredListing, criteria: dict, model: str, candidate_summary: str = "") -> Optional[LLMEvaluation]:
+    path = CACHE_DIR / f"{_cache_key(scored, criteria, model, candidate_summary)}.json"
     with _CACHE_LOCK:
         if not path.exists():
             return None
@@ -131,8 +150,8 @@ def _load_cached(scored: ScoredListing, criteria: dict, model: str) -> Optional[
     return LLMEvaluation(**data, cached=True)
 
 
-def _save_cached(evaluation: LLMEvaluation, scored: ScoredListing, criteria: dict, model: str) -> None:
-    path = CACHE_DIR / f"{_cache_key(scored, criteria, model)}.json"
+def _save_cached(evaluation: LLMEvaluation, scored: ScoredListing, criteria: dict, model: str, candidate_summary: str = "") -> None:
+    path = CACHE_DIR / f"{_cache_key(scored, criteria, model, candidate_summary)}.json"
     data = {k: v for k, v in evaluation.__dict__.items() if k != "cached"}
     with _CACHE_LOCK:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -151,6 +170,7 @@ def evaluate_listing(
     model: str = "gpt-4o",
     use_cache: bool = True,
     max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
+    candidate_summary: str = "",
 ) -> LLMEvaluation:
     """
     Evaluate one listing via the LLM.
@@ -160,14 +180,14 @@ def evaluate_listing(
     rather than raising — callers always get a result.
     """
     if use_cache:
-        cached = _load_cached(scored, criteria, model)
+        cached = _load_cached(scored, criteria, model, candidate_summary)
         if cached:
             return cached
 
     raw = client.chat(
         [
             {"role": "system", "content": build_system_prompt()},
-            {"role": "user", "content": build_evaluation_prompt(scored, criteria)},
+            {"role": "user", "content": build_evaluation_prompt(scored, criteria, candidate_summary)},
         ],
         model=model,
         max_tokens=max_tokens,
@@ -196,7 +216,7 @@ def evaluate_listing(
             raw_response=raw,
         )
 
-    _save_cached(evaluation, scored, criteria, model)
+    _save_cached(evaluation, scored, criteria, model, candidate_summary)
     return evaluation
 
 
@@ -224,6 +244,7 @@ def _evaluate_for_batch(
     model: str,
     use_cache: bool,
     max_tokens: int,
+    candidate_summary: str = "",
 ) -> LLMEvaluation:
     try:
         return evaluate_listing(
@@ -233,6 +254,7 @@ def _evaluate_for_batch(
             model=model,
             use_cache=use_cache,
             max_tokens=max_tokens,
+            candidate_summary=candidate_summary,
         )
     except Exception as exc:
         warnings.warn(f"LLM evaluation failed for {scored.listing.url}: {exc}")
@@ -263,6 +285,7 @@ def batch_evaluate(
     use_cache: bool = True,
     concurrency: int = DEFAULT_LLM_CONCURRENCY,
     max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
+    candidate_summary: str = "",
 ) -> list[tuple[ScoredListing, LLMEvaluation]]:
     """
     Evaluate all top listings and return (scored, evaluation) pairs sorted by
@@ -288,6 +311,7 @@ def batch_evaluate(
                     model=model,
                     use_cache=use_cache,
                     max_tokens=max_tokens,
+                    candidate_summary=candidate_summary,
                 ),
             )
             for index, scored in iterator
@@ -306,6 +330,7 @@ def batch_evaluate(
                 model=model,
                 use_cache=use_cache,
                 max_tokens=max_tokens,
+                candidate_summary=candidate_summary,
             )
             futures_by_index[future] = (index, scored)
 

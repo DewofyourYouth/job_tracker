@@ -4,4 +4,6 @@ cover_letters
 entrypoint
 injest
 prompts
+providers
+templates
 writing-samples

@@ -344,6 +344,34 @@ def _any_phrase_in(phrases: list[str], text: str) -> str | None:
 # Stage 1: Hard pre-filter
 # ---------------------------------------------------------------------------
 
+_TRACKED_API_PREFIXES = ("greenhouse_api:", "lever_api:", "ashby_api:", "workable_api:")
+
+
+def _is_tracked_company(listing: RawListing) -> bool:
+    """Return True if the listing came from a directly-ingested company API (not a web search)."""
+    return (listing.source or "").startswith(_TRACKED_API_PREFIXES)
+
+
+def needs_description_for_scoring(listing: RawListing, criteria: dict) -> bool:
+    """
+    Return True if the listing should have its description fetched before scoring.
+
+    This covers tracked-company listings whose title has no positive keyword hits —
+    they passed the hard filter due to the trusted-source exemption, but the scorer
+    needs the description to assess tech stack and role fit accurately.
+    """
+    if listing.description:
+        return False
+    if not _is_tracked_company(listing):
+        return False
+    tf = criteria.get("title_filter", {})
+    positives = tf.get("positive", [])
+    if not positives:
+        rf = criteria.get("role_fit", {})
+        positives = rf.get("strong_keywords", []) + rf.get("weak_keywords", [])
+    return not any(_phrase_in(kw, listing.title) for kw in positives if kw)
+
+
 def passes_title_filter(
     listing: RawListing, criteria: dict, config: ScoringConfig | None = None
 ) -> bool:
@@ -355,6 +383,10 @@ def passes_title_filter(
     coherent when no explicit title_filter section exists in the criteria YAML.
 
     Negative pool: criteria.title_filter.negative (hard-blocked terms).
+
+    Tracked-company listings (sourced from a structured ATS API) skip the positive
+    keyword requirement — you explicitly added that company because you trust it.
+    Negative keywords and hard-avoid rules still apply.
     """
     title = listing.title
 
@@ -369,6 +401,10 @@ def passes_title_filter(
 
     if _any_phrase_in(negatives, title):
         return False
+
+    # Tracked-company listings: trust the source, skip positive-keyword gate
+    if _is_tracked_company(listing):
+        return True
 
     if not positives:
         return True  # nothing to filter on → pass all

@@ -4,6 +4,7 @@ pyproject.toml
 classify/llm.py
 classify/rules.py
 classify/semantic.py
+commands/apply.py
 commands/auth.py
 commands/generate_criteria.py
 commands/pdf.py
@@ -20,3 +21,7 @@ job_tracker.egg-info/entry_points.txt
 job_tracker.egg-info/requires.txt
 job_tracker.egg-info/top_level.txt
 prompts/render.py
+providers/__init__.py
+providers/anthropic_client.py
+providers/base.py
+providers/openai_client.py
