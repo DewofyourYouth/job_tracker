@@ -447,10 +447,52 @@ def _fetch_lever_description(listing: RawListing) -> RawListing:
     return listing
 
 
+def _ashby_location_from_page(html: str, existing: str | None) -> str | None:
+    """Parse an Ashby job page to extract Location Type and return an updated location string."""
+    lt_match = re.search(
+        r'<h2[^>]*>\s*Location\s+Type\s*</h2>\s*<p[^>]*>([^<]+)</p>',
+        html, re.IGNORECASE
+    )
+    if not lt_match:
+        return existing
+    loc_type = lt_match.group(1).strip().lower()
+    _LABELS = {"on-site": "Onsite", "onsite": "Onsite", "hybrid": "Hybrid", "remote": "Remote"}
+    label = _LABELS.get(loc_type)
+    if not label:
+        return existing
+    loc_match = re.search(
+        r'<h2[^>]*>\s*Location\s*</h2>\s*<p[^>]*>([^<]+)</p>',
+        html, re.IGNORECASE
+    )
+    base = loc_match.group(1).strip() if loc_match else None
+    if not base:
+        base = re.sub(r'\s*\((?:Remote|Onsite|Hybrid)\)\s*$', '', existing or '', flags=re.IGNORECASE).strip()
+    return f"{base} ({label})" if base else label
+
+
 def _fetch_ashby_description(listing: RawListing) -> RawListing:
-    desc_html = listing.raw.get("descriptionHtml") or listing.raw.get("description")
+    raw = listing.raw if isinstance(listing.raw, dict) else {}
+    desc_html = raw.get("descriptionHtml") or raw.get("description")
+    location = listing.location
+
+    if not raw.get("workplaceType"):
+        # workplaceType missing from API — scrape the job page to determine it
+        try:
+            resp = httpx.get(listing.url, headers=_HTTP_HEADERS, timeout=_FETCH_TIMEOUT, follow_redirects=True)
+            resp.raise_for_status()
+            html = resp.text
+            location = _ashby_location_from_page(html, listing.location)
+            if not desc_html:
+                return RawListing(**{
+                    **listing.__dict__,
+                    "description": _strip_html(html)[:4000],
+                    "location": location,
+                })
+        except Exception as exc:
+            warnings.warn(f"[ashby_description] {listing.url}: {exc}")
+
     if desc_html:
-        return RawListing(**{**listing.__dict__, "description": _strip_html(desc_html)})
+        return RawListing(**{**listing.__dict__, "description": _strip_html(desc_html), "location": location})
     return _fetch_generic_description(listing)
 
 

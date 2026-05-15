@@ -432,6 +432,13 @@ def passes_hard_rules(
     if not passes_title_filter(listing, criteria, config):
         return False, f"title failed keyword filter: {listing.title!r}"
 
+    if listing.location:
+        loc_lower = listing.location.lower()
+        if "onsite" in loc_lower:
+            acceptable = [p.lower() for p in criteria.get("location_remote", {}).get("acceptable_onsite_locations", [])]
+            if not any(place in loc_lower for place in acceptable):
+                return False, f"onsite role in non-acceptable location: {listing.location!r}"
+
     avoid = criteria.get("avoid", {})
     hard = avoid.get("hard_disqualify", [])
     rf = criteria.get("role_fit", {})
