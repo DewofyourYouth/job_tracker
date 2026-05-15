@@ -1,18 +1,18 @@
 # User-adjustable scoring tuning.
 #
-# Copy this file to data/scoring_tuning.yaml and edit values there:
+# Copy this file to data/scoring-tuning.yaml and edit values there:
 #
-#   cp data/scoring_tuning.example.yaml data/scoring_tuning.yaml
+#   cp data/scoring-tuning.example.yaml data/scoring-tuning.yaml
 #
 # This file controls numeric weights, thresholds, score ladders, and penalties.
 # It intentionally does not contain personal profile content, role keywords, or
 # portal/search sources. Those live in data/profile.yaml, data/portals.yaml, and
-# generated data/scoring_criteria.yaml.
+# generated data/scoring-criteria.yaml.
 #
 # Merge order at runtime:
 #   1. built-in defaults
-#   2. generated data/scoring_criteria.yaml
-#   3. data/scoring_tuning.yaml overrides
+#   2. generated data/scoring-criteria.yaml
+#   3. data/scoring-tuning.yaml overrides
 
 # Relative importance of each rule-score dimension. Values are used as-is and
 # do not need to add up to 1.0.

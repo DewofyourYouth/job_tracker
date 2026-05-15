@@ -3,14 +3,14 @@
 
 Runs all stages in sequence:
   1. read_profile_and_cv         — load data/cv.md + data/profile.yaml
-  2. generate_criteria           — load (or generate) data/scoring_criteria.yaml
+  2. generate_criteria           — load (or generate) data/scoring-criteria.yaml
   3. scan_for_jobs               — ingest raw listings from portals.yaml sources
   4. eliminate_irrelevant_jobs   — hard-filter: title gate + avoid-role rules
   5. score_relevant_positions    — weighted rule scoring; narrows to top N
   6. analyze_remaining_positions — LLM quick evaluation of top N
   7. generate_reports            — display table + write detailed markdown reports
 
-Numeric scoring tuning is loaded from data/scoring_tuning.yaml during the scan
+Numeric scoring tuning is loaded from data/scoring-tuning.yaml during the scan
 stage and overrides generated criteria values.
 
 Each stage stores its output on the Pipeline instance so the next stage can
@@ -58,7 +58,7 @@ console = Console()
 
 CV_PATH = Path("data/cv.md")
 PROFILE_PATH = Path("data/profile.yaml")
-CRITERIA_PATH = Path("data/scoring_criteria.yaml")
+CRITERIA_PATH = Path("data/scoring-criteria.yaml")
 PORTALS_PATH = Path("data/portals.yaml")
 API_COST_CONFIG_PATH = Path("data/api-cost-config.yaml")
 
@@ -303,7 +303,7 @@ def _generate_criteria_file(
     cost_config: dict | None = None,
 ) -> None:
     """
-    Call the LLM to write scoring_criteria.yaml from the CV + profile.
+    Call the LLM to write scoring-criteria.yaml from the CV + profile.
 
     Reuses the prompt builders and post-processors from generate_criteria.py
     so that pipeline-generated criteria are identical to those produced by the
@@ -432,7 +432,7 @@ def build_reports_pipeline(
     default=str(DEFAULT_TUNING_PATH),
     show_default=True,
     type=click.Path(),
-    help="Path to scoring_tuning.yaml with user-adjustable numeric weights and score ladders.",
+    help="Path to scoring-tuning.yaml with user-adjustable numeric weights and score ladders.",
 )
 @click.option(
     "--min-report-score",

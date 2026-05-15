@@ -4,11 +4,11 @@
 Usage:
   python entrypoint.py scan [OPTIONS]
 
-Requires data/scoring_criteria.yaml to exist (generate with `generate-criteria`).
+Requires data/scoring-criteria.yaml to exist (generate with `generate-criteria`).
 CLI weight/tolerance flags override the YAML values for one-off experiments.
 
 Full pipeline:
-  1. Load scoring_criteria.yaml + optional scoring_tuning.yaml.
+  1. Load scoring-criteria.yaml + optional scoring-tuning.yaml.
   2. Load portals.yaml for ingestion sources.
   3. Ingest all enabled sources → list[RawListing].
   4. Rule-based pre-filter + weighted scoring → list[ScoredListing].
@@ -51,7 +51,7 @@ from providers import get_client
 
 console = Console()
 
-CRITERIA_PATH = Path("data/scoring_criteria.yaml")
+CRITERIA_PATH = Path("data/scoring-criteria.yaml")
 LISTINGS_CSV_PATH = Path("data/listings.csv")
 _CSV_FIELDS = [
     "Company",
@@ -341,7 +341,7 @@ def upsert_listings_csv(
     console.print(f"  [dim]listings.csv updated ({len(rows)} entries)[/]")
 
 # Expose built-in fallback values for help text only. Runtime values come from
-# scoring_criteria.yaml and are overridden by scoring_tuning.yaml.
+# scoring-criteria.yaml and are overridden by scoring-tuning.yaml.
 _W = ScoringWeights()
 _T = ScoringTolerances()
 
@@ -384,11 +384,11 @@ _T = ScoringTolerances()
 @click.option("--criteria", "criteria_path",
               default=str(CRITERIA_PATH), show_default=True,
               type=click.Path(),
-              help="Path to scoring_criteria.yaml (generate with generate-criteria).")
+              help="Path to scoring-criteria.yaml (generate with generate-criteria).")
 @click.option("--tuning-config", "tuning_path",
               default=str(DEFAULT_TUNING_PATH), show_default=True,
               type=click.Path(),
-              help="Path to scoring_tuning.yaml with user-adjustable numeric weights and score ladders.")
+              help="Path to scoring-tuning.yaml with user-adjustable numeric weights and score ladders.")
 @click.option("--portals-config", "portals_path",
               default=str(Path("data/portals.yaml")), show_default=True,
               type=click.Path(exists=True),

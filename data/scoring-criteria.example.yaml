@@ -3,13 +3,13 @@
 #
 #   python entrypoint.py generate-criteria
 #
-# The generated file (data/scoring_criteria.yaml) is gitignored.
+# The generated file (data/scoring-criteria.yaml) is gitignored.
 # This example shows the schema with placeholder values.
 #
 # Candidate-specific matching rules live here: role names, keywords, locations,
 # avoid terms, and compensation assumptions.
 #
-# Numeric tuning can live in data/scoring_tuning.yaml. When present, it overrides
+# Numeric tuning can live in data/scoring-tuning.yaml. When present, it overrides
 # weights, tolerances, score_ladders, and adjustments from this generated file,
 # so you can regenerate criteria without losing scoring-tuning experiments.
 
@@ -23,7 +23,7 @@ meta:
 # Baseline weights — relative importance of each scoring criterion.
 # Values are used as-is; they don't need to sum to 1.0.
 # Increase a weight to make that dimension dominate the final ranking.
-# Override these safely in data/scoring_tuning.yaml.
+# Override these safely in data/scoring-tuning.yaml.
 # ---------------------------------------------------------------------------
 weights:
   role_fit: 0.40 # How closely the title matches your target archetypes.
@@ -34,7 +34,7 @@ weights:
 
 # ---------------------------------------------------------------------------
 # Baseline tolerances — thresholds that control the funnel width.
-# Override these safely in data/scoring_tuning.yaml.
+# Override these safely in data/scoring-tuning.yaml.
 # ---------------------------------------------------------------------------
 tolerances:
   min_score_threshold: 0.35 # Listings below this are discarded before LLM.

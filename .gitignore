@@ -2,8 +2,8 @@
 data/cv.md
 data/profile.yaml
 data/portals.yaml
-data/scoring_criteria.yaml
-data/scoring_tuning.yaml
+data/scoring-criteria.yaml
+data/scoring-tuning.yaml
 data/listings.csv
 .env
 .job_tracker/

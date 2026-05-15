@@ -1,5 +1,5 @@
 """
-`generate-criteria` command — derive data/scoring_criteria.yaml from cv.md + profile.yaml.
+`generate-criteria` command — derive data/scoring-criteria.yaml from cv.md + profile.yaml.
 
 This command reads your CV and profile, sends them to the OpenAI API, and asks it
 to extract a structured YAML file of scoring criteria. The output file is gitignored
@@ -8,11 +8,11 @@ and must be regenerated whenever your profile or CV changes significantly.
 The generated file defines candidate-specific parameters used by classify/rules.py:
 role archetypes, tech keywords, location rules, avoid patterns, compensation thresholds,
 and baseline weights/tolerances. Hand-tuned numeric overrides live separately in
-data/scoring_tuning.yaml so criteria can be regenerated without losing tuning.
+data/scoring-tuning.yaml so criteria can be regenerated without losing tuning.
 
 Usage:
   python entrypoint.py generate-criteria
-  python entrypoint.py generate-criteria --output data/scoring_criteria.yaml
+  python entrypoint.py generate-criteria --output data/scoring-criteria.yaml
   python entrypoint.py generate-criteria --model gpt-4o   # richer extraction
   python entrypoint.py generate-criteria --dry-run        # print YAML, don't write
 """
@@ -33,8 +33,8 @@ console = Console()
 
 CV_PATH = Path("data/cv.md")
 PROFILE_PATH = Path("data/profile.yaml")
-DEFAULT_OUTPUT = Path("data/scoring_criteria.yaml")
-EXAMPLE_PATH = Path("data/scoring_criteria.example.yaml")
+DEFAULT_OUTPUT = Path("data/scoring-criteria.yaml")
+EXAMPLE_PATH = Path("data/scoring-criteria.example.yaml")
 PORTALS_PATH = Path("data/portals.yaml")
 API_COST_CONFIG_PATH = Path("data/api-cost-config.yaml")
 REQUIRED_KEYS = [
@@ -156,7 +156,7 @@ def validate_criteria(parsed: dict) -> list[str]:
     default=str(DEFAULT_OUTPUT),
     show_default=True,
     type=click.Path(),
-    help="Where to write the generated scoring_criteria.yaml.",
+    help="Where to write the generated scoring-criteria.yaml.",
 )
 @click.option(
     "--cv", "cv_path",
@@ -206,7 +206,7 @@ def generate_criteria_command(
     dry_run: bool,
     force: bool,
 ) -> None:
-    """Generate data/scoring_criteria.yaml from your CV and profile via the OpenAI API."""
+    """Generate data/scoring-criteria.yaml from your CV and profile via the OpenAI API."""
 
     output = Path(output_path)
 

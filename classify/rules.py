@@ -3,7 +3,7 @@ Rule-based pre-filter and weighted scoring for job listings.
 
 Pipeline position: STAGE 2 (after ingestion, before LLM evaluation)
 
-All personal scoring parameters are loaded from data/scoring_criteria.yaml.
+All personal scoring parameters are loaded from data/scoring-criteria.yaml.
 The Python code here is generic — it implements the algorithm; the YAML
 defines what matters for this candidate. Never add personal preferences here.
 """
@@ -20,8 +20,8 @@ if TYPE_CHECKING:
     from classify.semantic import SemanticScorer
 
 
-CRITERIA_PATH = Path("data/scoring_criteria.yaml")
-DEFAULT_TUNING_PATH = Path("data/scoring_tuning.yaml")
+CRITERIA_PATH = Path("data/scoring-criteria.yaml")
+DEFAULT_TUNING_PATH = Path("data/scoring-tuning.yaml")
 
 
 # ---------------------------------------------------------------------------
@@ -140,8 +140,8 @@ def load_tuning_config(path: Path = DEFAULT_TUNING_PATH, *, required: bool = Fal
     """
     Load optional user-adjustable score tuning.
 
-    `scoring_criteria.yaml` is generated from the CV/profile and can be
-    regenerated. `scoring_tuning.yaml` is hand-edited and overrides numeric
+    `scoring-criteria.yaml` is generated from the CV/profile and can be
+    regenerated. `scoring-tuning.yaml` is hand-edited and overrides numeric
     weights, thresholds, score ladders, and penalties.
     """
     if not path.exists():
@@ -196,8 +196,8 @@ def config_from_criteria(criteria: dict, tuning: dict | None = None) -> ScoringC
 
     Merge order:
       1. dataclass defaults,
-      2. numeric values in scoring_criteria.yaml,
-      3. numeric overrides in scoring_tuning.yaml.
+      2. numeric values in scoring-criteria.yaml,
+      3. numeric overrides in scoring-tuning.yaml.
     """
     tuning = tuning or {}
     w = _deep_merge(criteria.get("weights", {}), tuning.get("weights", {}))

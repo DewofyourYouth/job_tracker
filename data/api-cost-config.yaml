@@ -1,7 +1,7 @@
 # API cost configuration for the job-report pipeline.
 # Edit this file to control which models are used and how many API calls are made.
 #
-# Stage 2: Criteria generation  — one-off call; only runs when scoring_criteria.yaml is absent.
+# Stage 2: Criteria generation  — one-off call; only runs when scoring-criteria.yaml is absent.
 # Stage 5: Semantic scoring     — local model, no API cost.
 # Stage 6: LLM evaluation       — one call per listing forwarded from the rule scorer.
 # Stage 7: Report generation    — one call per listing that scores >= report_generation.min_score.
@@ -11,7 +11,7 @@
 # Required env vars: OPENAI_API_KEY (openai) | ANTHROPIC_API_KEY (anthropic)
 provider: openai
 
-# Stage 2 — generate scoring_criteria.yaml from your CV + profile.
+# Stage 2 — generate scoring-criteria.yaml from your CV + profile.
 criteria_generation:
   model: gpt-4.1-mini
   max_tokens: 2048
