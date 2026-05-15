@@ -1,436 +1,346 @@
-# Job Tracker
+# job-tracker
+
+A local-first, cost-aware job search pipeline built around structured orchestration and selective LLM evaluation. It ingests job listings from ATS APIs and search sources, filters and scores them deterministically, and routes only the highest-confidence candidates to an LLM for deeper evaluation and report generation.
 
 Inspired by [career-ops](https://github.com/santifer/career-ops) by [santifer](https://github.com/santifer).
 
-A local-first job search assistant built around the principle that **API calls cost money and should be earned**. Local files, keyword rules, and deduplication handle the volume; the LLM is reserved for the decisions that actually benefit from it — profile review, fit evaluation of shortlisted jobs, and detailed job-fit reporting.
+---
 
-The project is intentionally built around plain files:
+## Why I Built This
 
-- `data/cv.md` - private CV/resume text.
-- `data/profile.yaml` - private structured candidate profile used by classifiers.
-- `data/portals.yaml` - private portal/search configuration.
-- `data/scoring_criteria.yaml` - private generated scoring rules.
-- `data/scoring_tuning.yaml` - private user-adjustable numeric scoring knobs.
-- `data/listings.csv` - local tracking table for discovered, scored, and reported jobs.
-- `output/llm_cache/` - cached quick LLM evaluations.
-- `output/reports/` - detailed markdown job-fit reports.
-- `data/*.example.*` - safe examples that can be committed.
+I'm a backend and infrastructure engineer in the middle of a deliberate career pivot — from Kubernetes-based platform engineering toward forward-deployed and AI systems integration roles. The job market for this kind of move is noisy: a lot of postings with overlapping titles, inconsistent seniority signals, irrelevant tech stacks, and compensation that varies enormously by location and remote policy.
 
-## Current Quickstart
+Rather than triaging listings manually or throwing every job description at an LLM and hoping for a useful score, I built a structured pipeline that does the cheap work cheaply and the expensive work sparingly. The result is a reproducible, configurable workflow that surfaces genuinely relevant opportunities and produces detailed fit reports — without burning API budget on listings that a keyword rule could have eliminated in milliseconds.
 
-Use Python 3.14.0, matching `.python-version`.
+---
 
-If you use `pyenv`:
+## What This Demonstrates
 
-```bash
-pyenv install 3.14.0
-pyenv local 3.14.0
+- **Structured AI-assisted workflows** — LLM evaluation is one stage in a multi-stage pipeline, not the whole system. Local rules handle volume; the model handles judgment.
+- **Deterministic pre-filtering before AI evaluation** — hard filters, rule scoring, and semantic similarity run locally. The LLM only sees listings that survived meaningful local triage.
+- **Cost-aware orchestration** — per-stage model selection, token budgets, concurrency limits, and top-N volume controls are externalised to a YAML config. Cheaper models handle high-volume stages; better models handle report generation.
+- **Evaluation-oriented thinking** — the pipeline is designed to be auditable. Every stage has structured outputs. LLM results are cached by input hash so reruns don't re-spend. Scoring logic is separated from criteria so you can tune one without touching the other.
+- **Local-first data ownership** — all personal data (CV, profile, listings, reports, LLM cache) stays on disk. Nothing is sent to an external service except the LLM API call itself.
+- **Human-in-the-loop by default** — the pipeline surfaces candidates and writes reports, but apply/skip decisions remain manual. Profile review changes require explicit confirmation before writing.
+- **Backend automation patterns** — concurrent LLM evaluation with bounded thread pools, URL-keyed CSV upserts, file-based caching, Jinja2 prompt templates, Click CLI with per-stage overrides.
+- **Separation of concerns** — scoring weights live in one file, scoring criteria in another, API cost config in a third. Each can be modified independently without touching code.
+
+---
+
+## Pipeline Overview
+
+```
+Job board APIs + Brave Search
+        │
+        ▼
+  Normalise + dedupe
+  (URL-keyed RawListing objects)
+        │
+        ▼
+  Hard title/avoid filter
+  (keyword rules, no API call)
+        │
+        ▼
+  Weighted rule scoring
+  (role fit, seniority, location, tech stack, compensation)
+        │
+        ▼
+  Top N → fetch full descriptions
+  (Greenhouse API, web fetch)
+        │
+        ▼
+  Optional: local semantic scoring
+  (sentence-transformers, all-MiniLM-L6-v2)
+        │
+        ▼
+  Quick LLM evaluation  [API call × top_n]
+  (fit_score /10, summary, strengths, red flags)
+  Results cached by input hash
+        │
+        ▼
+  Detailed report generation  [API call × min_score survivors]
+  (structured markdown, reused if report already exists)
+        │
+        ▼
+  listings.csv  +  output/reports/
 ```
 
-Create and activate a virtual environment:
+Each stage writes structured output. The CSV is the persistent state store — it accumulates across runs, URL is the dedupe key, and each stage only writes the fields it owns.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
+---
+
+## Design Principles
+
+**LLM calls should be earned.**
+Every job description that reaches the LLM has already passed a hard title filter, a keyword scoring pass, and a configurable score threshold. The model sees a curated shortlist, not raw feed volume.
+
+**Local-first data ownership.**
+The CV, profile, all listings data, LLM responses, and generated reports live on disk. The pipeline reads and writes plain files. Nothing is stored in a third-party service. Sensitive personal data never leaves the machine except as part of a deliberate API call.
+
+**Determinism before probability.**
+The scoring system uses explicit, auditable rules — YAML-defined role archetypes, keyword lists, score ladders, and weighted dimensions. These are intentionally transparent so you can read why a listing scored the way it did and adjust the knobs without guessing.
+
+**Cost is a first-class concern.**
+Model selection, token budgets, concurrency, and how many listings reach each stage are all externalised to `data/api-cost-config.yaml`. Different stages use different models. The cheapest model that produces adequate results at a given stage is the right model for that stage.
+
+**Human-in-the-loop, not autopilot.**
+The pipeline produces ranked listings and fit reports. It does not apply to jobs, filter your email, or take actions on your behalf. Decisions remain with the operator.
+
+**Structured systems over prompt magic.**
+The LLM prompt is a Jinja2 template in `prompts/`. The system prompt, user message, and scoring context are all explicit. If evaluation quality degrades, the fix is in the template, the criteria file, or the scoring config — not in the hope that a better prompt string will emerge from iteration.
+
+---
+
+## Architecture
+
+```
+job-tracker/
+├── entrypoint.py              # Click CLI entry point  →  `job <command>`
+├── commands/
+│   ├── pipeline.py            # End-to-end orchestration
+│   ├── scan.py                # Discovery + scoring + LLM evaluation
+│   ├── generate_criteria.py   # LLM-assisted criteria generation from CV + profile
+│   ├── report.py              # Detailed markdown report generation
+│   └── profile_review.py      # CV ↔ profile consistency review
+├── classify/
+│   ├── score.py               # Rule-based scoring engine
+│   ├── llm.py                 # Quick LLM evaluation (cached)
+│   └── semantic.py            # Local semantic scoring
+├── fetch/                     # ATS API clients (Greenhouse, Lever, Workable, Ashby)
+├── prompts/
+│   ├── render.py              # Jinja2 template renderer
+│   ├── llm_eval_system.md     # Quick eval system prompt
+│   ├── llm_eval_user.md       # Quick eval user message template
+│   ├── report_system.md       # Report generation system prompt
+│   ├── report_user.md         # Report generation user message template
+│   ├── criteria_system.md     # Criteria generation system prompt
+│   └── criteria_user.md       # Criteria generation user message template
+└── data/
+    ├── cv.md                  # Private — full CV text
+    ├── profile.yaml           # Private — structured candidate profile
+    ├── portals.yaml           # Private — search/ATS source configuration
+    ├── scoring_criteria.yaml  # Private — generated scoring rules
+    ├── scoring_tuning.yaml    # Private — numeric scoring overrides
+    └── api-cost-config.yaml   # Private — per-stage model/token/volume config
 ```
 
-Install requirements:
+**Key data flows:**
+
+- `data/cv.md` + `data/profile.yaml` → `generate-criteria` → `data/scoring_criteria.yaml`
+- `data/portals.yaml` → discovery → `data/listings.csv` (upserted each run)
+- `data/scoring_criteria.yaml` + `data/scoring_tuning.yaml` → rule scoring
+- `data/api-cost-config.yaml` → model selection, token budgets, concurrency, volume controls
+- `output/llm_cache/` → hash-keyed evaluation cache (skips re-evaluation on rerun)
+- `output/reports/` → URL-keyed markdown reports (skips regeneration if report exists)
+
+---
+
+## Setup
+
+Python 3.14+ is required. The repo uses a [pyenv](https://github.com/pyenv/pyenv) virtualenv named `jobs-env`. `.python-version` contains the virtualenv name so pyenv activates it automatically on `cd`.
+
+### With pyenv (recommended)
+
+```bash
+pyenv install 3.14.0          # skip if already installed
+pyenv virtualenv 3.14.0 jobs-env
+```
+
+From the project root — pyenv auto-activates `jobs-env` via `.python-version`:
+
+```bash
+pip install -e .
+```
+
+The editable install registers the `job` CLI entry point.
+
+### Without pyenv
+
+Create and activate any Python 3.14+ virtual environment, then:
 
 ```bash
 pip install -r requirements.txt
+pip install -e .
 ```
 
-Create your private local files from the examples:
+### Private data files
 
 ```bash
 cp data/cv.example.md data/cv.md
 cp data/profile.example.yaml data/profile.yaml
 cp data/portals.example.yaml data/portals.yaml
 cp data/scoring_tuning.example.yaml data/scoring_tuning.yaml
+cp data/api-cost-config.example.yaml data/api-cost-config.yaml
 ```
 
-Edit `data/cv.md` with your real CV/resume information. Then edit
-`data/profile.yaml` with your contact details, target roles, role preferences,
-compensation expectations, location constraints, and proof points. The profile
-review command can help refine this file, but it needs a reasonable starting
-point.
+Edit `data/cv.md` with your CV text. Edit `data/profile.yaml` with your contact details, target roles, preferences, compensation, and location constraints.
 
-Set your OpenAI API key:
+### OpenAI API key
 
 ```bash
 export OPENAI_API_KEY="sk-..."
 ```
 
-Or put it in `.env` if your shell/tooling loads `.env` automatically. This
-project does not currently load `.env` itself.
+This project does not load `.env` automatically.
 
-API access is separate from ChatGPT/Codex access. If the command returns
-`insufficient_quota`, the API project for that key needs billing/quota or a
-different API key.
+---
 
-The current implementation uses OpenAI directly. A later provider interface
-should make the LLM backend swappable so the same workflows can run against
-OpenAI, Claude, Gemini, or another service.
-
-Review your profile against your CV:
+## Quickstart
 
 ```bash
-python entrypoint.py profile-review
+job generate-criteria        # derive scoring rules from CV + profile
+job pipeline                 # scan → score → evaluate → report
 ```
 
-This calls the LLM once, prints recommendations, and saves the full proposed
-profile to `.job_tracker/profile_review.latest.json`. You are then asked
-whether to apply the changes immediately. If you decline, the review is kept
-on disk and you can apply it later without making another LLM call:
+---
+
+## Commands
 
 ```bash
-python entrypoint.py profile-review --apply
+job --help
 ```
 
-If the recommendations are not useful, discard the saved result:
+### `generate-criteria`
+
+Sends `data/cv.md` and `data/profile.yaml` to the LLM and writes a structured `data/scoring_criteria.yaml` containing target role archetypes, keyword lists, location rules, compensation assumptions, and avoid terms.
 
 ```bash
-python entrypoint.py profile-review --discard
+job generate-criteria
+job generate-criteria --dry-run
+job generate-criteria --force
+job generate-criteria --model gpt-4.1-mini
 ```
 
-Generate scoring criteria from the CV/profile and portal title filter:
+### `profile-review`
+
+Compares `data/cv.md` to `data/profile.yaml` and returns structured recommendations. Saves the proposed profile to disk before asking whether to apply changes — `--apply` writes without a second API call.
 
 ```bash
-python entrypoint.py generate-criteria
+job profile-review
+job profile-review --feedback "Avoid DevOps-only roles."
+job profile-review --json
+job profile-review --apply
+job profile-review --discard
+job profile-review --model gpt-4.1-mini
 ```
 
-Run the full job report pipeline:
+Required profile sections: `candidate`, `target_roles`, `narrative`, `preferences`, `compensation`, `location`.
+
+### `scan`
+
+Runs discovery, rule scoring, optional description fetching, and quick LLM evaluation. Writes/upserts `data/listings.csv`.
 
 ```bash
-python entrypoint.py pipeline
+job scan
+job scan --skip-llm
+job scan --top-n 150
+job scan --fetch-descriptions
+job scan --llm-concurrency 8
+job scan --output-json output/scan.json
 ```
 
-By default the pipeline sends up to 100 rule-ranked listings to the quick LLM
-evaluation stage, evaluates them with 5 concurrent workers, and writes detailed
-reports for evaluated listings with `fit_score >= 5/10`.
+### `pipeline`
 
-## Current Commands
-
-Show commands:
+End-to-end orchestration: loads or generates criteria → scans → filters → scores → fetches descriptions → LLM evaluation → detailed report generation.
 
 ```bash
-python entrypoint.py --help
+job pipeline
+job pipeline --llm-concurrency 8
+job pipeline --reports-top-n 25
+job pipeline --min-report-score 6
+job pipeline --tuning-config data/scoring_tuning.yaml
+job pipeline --output-json output/pipeline.json
 ```
 
-### Profile Review
+---
 
-Review the profile against the CV:
+## Configuration
 
-```bash
-python entrypoint.py profile-review
+### Scoring tuning (`data/scoring_tuning.yaml`)
+
+Numeric overrides for the rule scoring engine. Safe to hand-edit; not regenerated by the LLM.
+
+| Key                                    | Controls                                                |
+| -------------------------------------- | ------------------------------------------------------- |
+| `weights.*`                            | Relative weight of each scoring dimension               |
+| `tolerances.min_score_threshold`       | Local score cutoff before LLM stage                     |
+| `score_ladders.role_fit.*`             | Raw scores for exact/strong/weak/no-match role signals  |
+| `score_ladders.acceptable_location.*`  | Scores for remote/hybrid/onsite in acceptable locations |
+| `adjustments.salary.below_min_penalty` | Penalty for listings below salary minimum               |
+
+### API cost config (`data/api-cost-config.yaml`)
+
+Per-stage model selection, token budgets, concurrency, and volume controls.
+
+```yaml
+criteria_generation:
+  model: gpt-4.1-mini
+  max_tokens: 2048
+
+llm_evaluation:
+  model: gpt-4.1-nano   # cheapest adequate model for high-volume quick eval
+  max_tokens: 512
+  concurrency: 5
+  top_n: 20
+
+report_generation:
+  model: gpt-4.1-mini   # better model for the small set of detailed reports
+  max_tokens: 1500
+  min_score: 7
+  top_n: 5
+
+semantic:
+  model: all-MiniLM-L6-v2   # local; no API call
 ```
 
-Add extra guidance:
+CLI flags override config values for a single run.
 
-```bash
-python entrypoint.py profile-review \
-  --feedback "Avoid DevOps-only roles. Prefer backend/platform product work."
-```
+---
 
-Print raw JSON instead of the formatted summary:
+## Planned Improvements
 
-```bash
-python entrypoint.py profile-review --json
-```
+### Evaluation and observability
 
-Apply a previously saved review without making another LLM call:
+- Structured evals for the LLM evaluation stage — ground truth comparisons against manually reviewed listings to measure scoring drift over time.
+- Per-run tracing and token spend logging so cost per pipeline run is visible and attributable by stage.
 
-```bash
-python entrypoint.py profile-review --apply
-```
+### Retrieval and matching
 
-Discard the saved review without changing the profile:
+- Retrieval-assisted matching using profile embeddings against listing corpora to surface structurally similar roles that keyword rules miss.
+- Richer semantic similarity: embedding the full CV narrative against job descriptions rather than just keyword presence.
 
-```bash
-python entrypoint.py profile-review --discard
-```
+### Structured outputs
 
-Use a different model:
+- Migrate quick LLM evaluation to structured JSON output mode (currently parsed from free-text JSON in the response body).
+- Schema validation on LLM output at each stage rather than optimistic parsing.
 
-```bash
-python entrypoint.py profile-review --model gpt-4.1-mini
-```
+### Provider abstraction
 
-The command can also be run directly:
+- Thin provider interface so criteria generation, quick eval, and report generation can run against OpenAI, Claude, Gemini, or a local model without changing pipeline code.
 
-```bash
-python commands/profile_review.py
-```
+### Application tracking
 
-### Generate Criteria
+- Status lifecycle: `DISCOVERED → TRIAGED → APPLY_READY → APPLIED → CONFIRMED → INTERVIEW → OFFER/REJECTED/ARCHIVED`.
+- Email-based status detection for application receipts, rejections, and interview requests.
 
-Generate `data/scoring_criteria.yaml` from `data/cv.md`, `data/profile.yaml`,
-and the optional `title_filter` in `data/portals.yaml`:
+### Tailored application materials
 
-```bash
-python entrypoint.py generate-criteria
-```
-
-Useful options:
-
-```bash
-python entrypoint.py generate-criteria --dry-run
-python entrypoint.py generate-criteria --force
-python entrypoint.py generate-criteria --model gpt-4o
-```
-
-The generated criteria controls candidate-specific matching rules: target role
-keywords, title filters, location rules, compensation assumptions, and avoid
-terms. Numeric ranking behavior can be tuned separately in
-`data/scoring_tuning.yaml`, which overrides generated weights, thresholds, score
-ladders, and penalties.
-
-### Tune Scoring
-
-Edit `data/scoring_tuning.yaml` when the ranking feels too strict, too loose,
-or biased toward the wrong signal. This file is safe to hand-edit and is not
-regenerated by the LLM.
-
-Useful knobs:
-
-- `weights.*` - relative importance of role fit, seniority, location, tech stack,
-  avoid-role penalties, and optional semantic scoring.
-- `tolerances.min_score_threshold` - how aggressively local scoring filters jobs
-  before the LLM stage.
-- `tolerances.top_n_for_llm` - how many rule-ranked listings reach the LLM.
-- `score_ladders.role_fit.*` - raw scores for exact, strong, weak, and no-match
-  role-title signals.
-- `score_ladders.acceptable_location.*` - raw scores for remote/hybrid/onsite
-  listings in acceptable locations.
-- `score_ladders.avoid.*` - raw scores for hard/soft avoid matches that survive
-  the hard filter.
-- `adjustments.salary.below_min_penalty` - score reduction for parseable salary
-  hints below your tolerated minimum.
-
-### Scan
-
-Run discovery, rule scoring, optional description fetching, and quick LLM
-evaluation:
-
-```bash
-python entrypoint.py scan
-```
-
-Useful options:
-
-```bash
-python entrypoint.py scan --skip-llm
-python entrypoint.py scan --top-n 150
-python entrypoint.py scan --tuning-config data/scoring_tuning.yaml
-python entrypoint.py scan --fetch-descriptions
-python entrypoint.py scan --llm-concurrency 8
-python entrypoint.py scan --output-json output/scan.json
-```
-
-`scan` writes/upserts `data/listings.csv`. URL is the dedupe key. Existing CSV
-values are preserved when the current stage does not know a field yet.
-
-### Pipeline
-
-Run the end-to-end report workflow:
-
-```bash
-python entrypoint.py pipeline
-```
-
-Useful options:
-
-```bash
-python entrypoint.py pipeline --llm-concurrency 8
-python entrypoint.py pipeline --reports-top-n 25
-python entrypoint.py pipeline --tuning-config data/scoring_tuning.yaml
-python entrypoint.py pipeline --min-report-score 6
-python entrypoint.py pipeline --output-json output/pipeline.json
-```
-
-`pipeline` loads or generates scoring criteria, scans job boards, applies local
-hard filters, rule-scores surviving listings, fetches full postings for the top
-LLM candidates, runs quick LLM evaluation with bounded concurrency, then writes
-or reuses detailed reports for evaluated listings with `fit_score >= 5/10`.
-
-## Status
-
-Currently implemented:
-
-- `profile-review`: compares `data/cv.md` to `data/profile.yaml` and recommends
-  profile changes.
-- Saved pending review flow so `--apply` does not make a second LLM call.
-- `generate-criteria`: derives `data/scoring_criteria.yaml` from the CV,
-  profile, and portal title filter.
-- `scan`: discovers jobs from configured sources, applies rule scoring, writes
-  `data/listings.csv`, and can run quick LLM evaluations.
-- `pipeline`: end-to-end flow for scanning, scoring, quick LLM evaluation, and
-  detailed markdown report generation.
-- Greenhouse, Lever, Workable, Ashby, and Brave Search discovery paths.
-- Greenhouse detail fetching for direct API listings and Greenhouse URLs found
-  through search.
-- Enriched `listings.csv` fields such as location, department, employment type,
-  workplace type, salary, source, first/last seen, rule score, LLM score,
-  recommendation, report path, strengths, and red flags.
-- Context-sensitive LLM cache files in `output/llm_cache/`.
-- Bounded parallel quick LLM evaluation via `--llm-concurrency`.
-- Report reuse by listing URL so reruns do not regenerate the same detailed
-  markdown report.
-- Environment-only OpenAI API key lookup via `OPENAI_API_KEY`.
-
-Planned:
-
-- Review queue for apply/maybe/skip decisions.
-- Tailored CV generation from profile, base CV, and selected job posting.
-- Application status tracking and email-based follow-up detection.
-- Provider abstraction for using OpenAI, Claude, Gemini, or another LLM service
-  behind one local interface.
-- Textual-based TUI dashboard for reviewing listings, scores, generated CVs,
-  and application statuses.
-
-## Planned TUI
-
-A later Textual dashboard should provide a local interface for the full workflow:
-
-- review discovered jobs and scores,
-- inspect LLM rationale and local filter matches,
-- mark jobs as skipped, evaluate, apply-ready, or applied,
-- generate and preview tailored CV variants,
-- track email/application status changes,
-- configure portal sources and LLM provider settings.
-
-The TUI should sit on top of the same command/service layer as the CLI so the
-workflow remains scriptable and testable.
-
-## Profile Review Behavior
-
-`profile-review` sends the CV and current YAML profile to OpenAI and asks for:
-
-- general comments,
-- specific revisions with current version, proposed change, and reasoning,
-- cautions for weakly supported claims,
-- a complete replacement `proposed_profile`.
-
-It validates that the proposed profile contains the expected top-level sections
-before writing anything.
-
-The default flow calls the LLM, prints the structured result, saves it to
-`.job_tracker/profile_review.latest.json`, then immediately asks whether to
-apply the changes. If you decline, the saved result stays on disk. `--apply`
-reads that saved result and updates `data/profile.yaml` without making another
-LLM request. `--discard` deletes the saved result without touching the profile.
-
-Required profile sections:
-
-- `candidate`
-- `target_roles`
-- `narrative`
-- `preferences`
-- `compensation`
-- `location`
-
-## Scanning Design
-
-The pipeline is designed to minimize expensive LLM calls. Job board API/search
-requests collect the broad pool, cheap local rules narrow it, and only the
-highest-ranked survivors reach the quick LLM evaluation stage.
-
-Default funnel shape:
-
-```text
-raw job board/search results
--> deduped RawListing objects
--> hard title/avoid filter
--> weighted local rule scoring
--> top 100 sent to quick LLM evaluation
--> detailed reports for LLM fit_score >= 5/10
-```
-
-`top_n_for_llm` defaults to `100`. It can be adjusted persistently in
-`data/scoring_tuning.yaml` or overridden for one run with `scan --top-n`.
-
-### Discovery
-
-1. Load portal/search configuration from `data/portals.yaml`.
-2. Scan configured sources for job openings.
-3. Prefer structured ATS APIs where possible: Greenhouse, Lever, Workable, and Ashby.
-4. Use Brave Search for configured search-query discovery when needed.
-5. Normalize listings into `RawListing` objects and dedupe by normalized URL.
-
-### Local Triage
-
-1. Filter obvious poor matches locally using:
-   - keyword rules for target roles, required skills, avoid terms, seniority,
-     location, and compensation,
-   - title-filter positives/negatives from `portals.yaml` or generated criteria,
-   - numeric tuning from `data/scoring_tuning.yaml` for weights, thresholds,
-     score ladders, and soft penalties,
-   - grep-style matching over title and fetched descriptions,
-   - optional local semantic scoring when enabled in criteria.
-2. Write hard-filter survivors into `data/listings.csv`.
-3. Rule-score survivors and split them into top LLM candidates, surviving cut
-   listings, and below-threshold listings.
-4. Preserve cumulative CSV data across runs; URL is the dedupe/upsert key.
-
-### LLM Evaluation (API call per surviving listing)
-
-1. Fetch full postings for top LLM candidates before evaluation. Greenhouse URLs
-   found through search are upgraded through the Greenhouse detail API when possible.
-2. Send compact job excerpts to the quick LLM evaluator.
-3. Evaluate listings with bounded thread-pool concurrency
-   (`--llm-concurrency`, default `5`).
-4. Ask the LLM for a structured fit evaluation:
-   `fit_score` out of 10, summary, strengths, red flags, and recommendation.
-5. Cache results in `output/llm_cache/` by listing context, criteria, and model
-   so reruns do not re-spend unless relevant inputs change.
-6. Sort results by LLM score, preserving local rule order as the tie-breaker.
-
-### Detailed Reports
-
-1. Generate detailed markdown reports for evaluated listings with
-   `fit_score >= 5/10` by default.
-2. Reports are written to `output/reports/`.
-3. Existing reports for the exact listing URL are reused instead of regenerated.
-4. New report filenames include a short URL hash so duplicate titles at the
-   same company do not overwrite each other.
-5. Report paths are written back into `data/listings.csv`.
-
-### Tailored Application Materials (planned)
-
-1. For jobs the candidate chooses to pursue, generate a tailored CV plan from:
-   `data/profile.yaml`, `data/cv.md`, and the selected job description.
-2. Use the LLM to recommend the strongest wording, ordering, emphasis, and
-   omissions for that specific application. The LLM improves wording and
-   prioritization but does not invent experience.
-3. Render the selected CV variant to HTML through a Jinja template.
-4. Export the HTML to a polished PDF or document suitable for application.
-
-### Application Tracking (no API calls)
-
-1. Walk the candidate through the application.
-2. When the candidate confirms the application is complete, mark the job as `APPLIED`.
-3. Periodically scan a connected email account for replies, receipts,
-   rejections, and interview requests.
-4. If a company sends an application receipt, mark the job as `CONFIRMED_APPLIED`.
-5. Track later statuses such as `INTERVIEW`, `REJECTED`, `OFFER`, and `ARCHIVED`.
-
-Suggested status flow:
-
-```text
-DISCOVERED -> TRIAGED -> EVALUATE -> SKIPPED | APPLY_READY
--> APPLIED -> CONFIRMED_APPLIED -> INTERVIEW | REJECTED | OFFER | ARCHIVED
-```
+- LLM-assisted CV tailoring: given a target job description and the base CV, recommend emphasis, ordering, and wording changes. The model improves prioritisation; it does not invent experience.
+- Jinja2 HTML template rendering for CV output → PDF export.
+
+### TUI
+
+- Textual-based local dashboard for reviewing ranked listings, inspecting LLM rationale, marking status, and triggering report generation — sitting on top of the same command/service layer as the CLI.
+
+---
 
 ## Git Hygiene
 
-Private files are ignored:
+Private files are gitignored:
 
-- `.env`
-- `data/cv.md`
-- `data/profile.yaml`
-- `data/portals.yaml`
-- `data/scoring_criteria.yaml`
+- `data/cv.md`, `data/profile.yaml`, `data/portals.yaml`
+- `data/scoring_criteria.yaml`, `data/api-cost-config.yaml`
 - `data/listings.csv`
 - `output/`
 
-Commit example files and code, not personal profile data or API keys.
+Example files (`data/*.example.*`) are committed. Personal data and API keys are not.
