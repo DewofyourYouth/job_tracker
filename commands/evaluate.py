@@ -324,14 +324,44 @@ def _display_rule_violations(scored: ScoredListing) -> None:
     type=click.Path(),
     help="Path to scoring-criteria.yaml.",
 )
+@click.option(
+    "--title",
+    default=None,
+    help="Override the job title (useful when the page can't be scraped).",
+)
+@click.option(
+    "--company",
+    default=None,
+    help="Override the company name.",
+)
+@click.option(
+    "--location",
+    default=None,
+    help="Override the location string (e.g. 'Tel Aviv (Hybrid)').",
+)
+@click.option(
+    "--description",
+    "description_text",
+    default=None,
+    help="Supply the job description text directly, bypassing URL scraping. Pass '-' to read from stdin.",
+)
 def evaluate_command(
     urls: tuple[str, ...],
     no_cache: bool,
     model: str,
     save: bool,
     criteria_path: str,
+    title: str | None,
+    company: str | None,
+    location: str | None,
+    description_text: str | None,
 ) -> None:
     """Fetch and evaluate one or more job posting URLs directly."""
+    import sys
+
+    if description_text == "-":
+        description_text = sys.stdin.read()
+
     criteria = load_criteria(Path(criteria_path))
     tuning = load_tuning_config(DEFAULT_TUNING_PATH)
     config = config_from_criteria(criteria, tuning)
@@ -354,18 +384,36 @@ def evaluate_command(
             console.print("  [yellow]Skipped:[/] previously returned 404 — URL is marked dead.")
             continue
 
-        try:
-            listing = fetch_listing_from_url(url)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 404:
-                console.print("  [red]404 Not Found[/] — marking URL as dead (will skip in future runs).")
-                upsert_listings_csv(dead_urls={url})
-            else:
-                console.print(f"  [red]HTTP {exc.response.status_code}:[/] {exc}")
-            continue
-        except Exception as exc:
-            console.print(f"  [red]Error:[/] {exc}")
-            continue
+        if description_text is not None:
+            listing = RawListing(
+                title=title or "Unknown Position",
+                company=company or _company_from_url(url),
+                url=url,
+                source="manual",
+                location=location,
+                description=description_text,
+            )
+            console.print("  [dim](description supplied manually — skipping URL fetch)[/]")
+        else:
+            try:
+                listing = fetch_listing_from_url(url)
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 404:
+                    console.print("  [red]404 Not Found[/] — marking URL as dead (will skip in future runs).")
+                    upsert_listings_csv(dead_urls={url})
+                else:
+                    console.print(f"  [red]HTTP {exc.response.status_code}:[/] {exc}")
+                continue
+            except Exception as exc:
+                console.print(f"  [red]Error:[/] {exc}")
+                continue
+
+            if title:
+                listing.title = title
+            if company:
+                listing.company = company
+            if location:
+                listing.location = location
 
         console.print(
             f"  [bold]{listing.title}[/] @ {listing.company}"
