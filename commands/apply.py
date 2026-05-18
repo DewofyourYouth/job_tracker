@@ -479,15 +479,18 @@ def apply_command(url, no_cover_letter, pdf, model, output_dir, open_browser):
     out_dir = Path(output_dir) if output_dir else APPLICATIONS_DIR / _output_slug(listing)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    candidate_name = profile.get("candidate", {}).get("full_name", "")
+    name_slug = re.sub(r"[^a-z0-9]+", "-", candidate_name.lower()).strip("-") if candidate_name else "cv"
+
     cv_html = render_cv_html(content, profile)
-    cv_path = out_dir / "cv.html"
+    cv_path = out_dir / f"{name_slug}-cv.html"
     cv_path.write_text(cv_html, encoding="utf-8")
     console.print(f"  [green]✓[/] CV → [bold]{cv_path}[/]")
 
     cl_path = None
     if include_cover_letter and content.get("cover_letter"):
         cl_html = render_cover_letter_html(content, profile, listing)
-        cl_path = out_dir / "cover-letter.html"
+        cl_path = out_dir / f"{name_slug}-cover-letter.html"
         cl_path.write_text(cl_html, encoding="utf-8")
         console.print(f"  [green]✓[/] Cover letter → [bold]{cl_path}[/]")
     elif include_cover_letter:

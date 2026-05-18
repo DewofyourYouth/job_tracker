@@ -100,6 +100,7 @@ job-tracker/
 ├── commands/
 │   ├── pipeline.py            # End-to-end orchestration
 │   ├── scan.py                # Discovery + scoring + LLM evaluation
+│   ├── evaluate.py            # Single-URL evaluation (outside pipeline portals)
 │   ├── generate_criteria.py   # LLM-assisted criteria generation from CV + profile
 │   ├── report.py              # Detailed markdown report generation
 │   ├── profile_review.py      # CV ↔ profile consistency review
@@ -273,6 +274,25 @@ job pipeline --tuning-config data/scoring-tuning.yaml
 job pipeline --output-json output/pipeline.json
 ```
 
+### `evaluate`
+
+Fetches and evaluates one or more job posting URLs directly, outside the pipeline. Runs the full rule scorer and LLM evaluator and displays the result. Useful for listings found via LinkedIn tip, recruiter email, or any source not covered by your portals config. Rule disqualification is shown as a warning but does not block LLM evaluation — you asked for it explicitly.
+
+```bash
+job evaluate <url>                                      # fetch and evaluate
+job evaluate <url1> <url2>                              # batch evaluate
+job evaluate <url> --no-cache                           # re-evaluate, ignore cache
+job evaluate <url> --model gpt-4.1                      # override model
+job evaluate <url> --no-save                            # display only, don't write to CSV
+job evaluate <url> --title "Staff Engineer"             # override scraped title
+job evaluate <url> --company "Acme Corp"                # override scraped company name
+job evaluate <url> --location "Tel Aviv (Hybrid)"       # override scraped location
+job evaluate <url> --description "$(cat jd.txt)"        # supply description directly
+job evaluate <url> --description -                      # read description from stdin
+```
+
+`--description` bypasses URL scraping entirely — the URL is still used as the dedupe key and for display, but the content comes from the flag. Pass `-` to pipe in from stdin (e.g. paste from a PDF or ATS that blocks scraping). `--title`, `--company`, and `--location` can be used alongside either scraped or manually supplied descriptions.
+
 ### `apply`
 
 Generates a tailored CV and cover letter for a specific job listing. One LLM call produces a structured JSON payload — tailored summary, competency tags, reweighted experience bullets, and a 3-paragraph cover letter — which is rendered into the HTML templates and exported to PDF via Playwright.
@@ -284,14 +304,14 @@ job apply <url>                      # apply to a specific listing
 job apply                            # pick interactively from listings.csv
 job apply <url> --pdf                # also export PDFs
 job apply <url> --pdf --open         # export PDFs and open them
-job apply <url> --no-cover-letter    # CV only
+job apply <url> --no-cover-letter    # CV only, skip cover letter
 job apply <url> --model gpt-4.1      # override model for this run
 job apply <url> --output-dir ~/Desktop/application
 ```
 
 Output goes to `output/applications/<company>-<title>-<hash>/`:
-- `cv.html` / `cv.pdf`
-- `cover-letter.html` / `cover-letter.pdf`
+- `<name>-cv.html` / `<name>-cv.pdf`
+- `<name>-cover-letter.html` / `<name>-cover-letter.pdf`
 
 PDF export requires Playwright (`pip install playwright`) using your installed Google Chrome — no separate browser binary is downloaded.
 
