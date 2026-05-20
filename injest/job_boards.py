@@ -22,6 +22,7 @@ import os
 import re
 import warnings
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -34,7 +35,22 @@ PORTALS_CONFIG_PATH = Path("data/portals.yaml")
 PROFILE_CONFIG_PATH = Path("data/profile.yaml")
 
 _FETCH_TIMEOUT = 15
+_INGEST_CONCURRENCY = 10
 
+# Used for structured API calls — no Accept-Encoding so servers send plain
+# JSON rather than gzip, which httpx only auto-decompresses when the response
+# includes a matching Content-Encoding header (not all APIs set it correctly).
+_API_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/136.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+# Used for HTML page fetches where compression is fine and expected.
 _HTTP_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -120,7 +136,7 @@ class GreenhouseIngester(IngestionSource):
 
     def fetch(self, config: dict) -> list[RawListing]:
         try:
-            resp = httpx.get(config["api"], headers=_HTTP_HEADERS, timeout=_FETCH_TIMEOUT)
+            resp = httpx.get(config["api"], headers=_API_HEADERS, timeout=_FETCH_TIMEOUT)
             resp.raise_for_status()
         except Exception as exc:
             warnings.warn(f"[greenhouse_api] {config['name']}: {exc}")

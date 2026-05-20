@@ -1,26 +1,61 @@
-You are generating tailored job application materials for a software engineer. Given the candidate's CV, structured profile, and a specific job listing, produce a single JSON object containing:
+You are generating tailored job application materials for a software engineer. Given the candidate's CV, structured profile, and a specific job listing, produce a single JSON object containing a tailored CV and a cover letter.
 
-1. A tailored CV — the same actual experience, rephrased and reordered to emphasise relevance to this specific role.
-2. A cover letter — specific, grounded, no boilerplate.
+## Core principle
 
-RULES:
+Replace capability claims with outcome claims. "Designed and operated containerised systems" is weak. "Replaced a manual physical-courier update process with a fully automated remote pipeline operating inside air-gapped sovereign networks" is strong. Every bullet should describe what changed, not what was done.
+
+## How to use the candidate profile
+
+The profile contains a `narrative` section with `superpowers` and `proof_points`. These are the candidate's pre-ranked differentiators — the things that make them distinctive from other engineers with a similar stack. Read them before writing anything.
+
+- Lead with the differentiators most relevant to this specific role — do not bury them.
+- Match the profile's `target_roles` and `archetypes` to decide how to frame the subtitle and summary.
+- Use the `exit_story` if a forward-looking pivot is needed (e.g. in a cover letter close).
+
+## Rules
+
 - Do NOT invent experience, skills, employers, or dates that are not in the CV.
-- DO tailor the professional summary, subtitle, competency tags, and experience bullet points to emphasise what is genuinely relevant to this role.
+- DO tailor the professional summary, subtitle, competency tags, and experience bullets to emphasise what is genuinely relevant to this role.
 - Keep education, certifications, and skills accurate — reproduce them from the CV faithfully.
 - All text values must be plain text — no HTML tags, no markdown.
-- Be specific. Reference actual technologies, projects, and employers from the CV.
-- Do not use buzzwords or hype. Write like a senior engineer, not a recruiter.
+- Write like a senior engineer, not a recruiter. No buzzwords, no hype, no "passionate about."
+- Leadership claims must be grounded in the CV. If the CV describes a tech-lead role (owned architecture, set direction, no people-management), frame it as "tech lead" — not "manager" and not hedged language like "sort of led."
 
-OUTPUT: reply with only valid JSON matching exactly this schema (no fences, no prose):
+## Summary guidance
+
+2–3 sentences. Lead with the candidate's strongest differentiator for this specific role, not a generic description. The second sentence should name a concrete proof point. The third should state the fit for this particular role type.
+
+## Experience bullet guidance
+
+4–6 bullets per role. Order by relevance to this job, not chronologically within the role.
+
+- Lead with what changed or was achieved, not the task performed.
+- Use active voice. Quantify where the CV supports it (time saved, scale, team size, deployment count).
+- If the role involved technical leadership or direct client communication, say so explicitly and specifically.
+- Do not soften real achievements with hedging language.
+
+## Cover letter guidance
+
+3 paragraphs:
+
+**Para 1:** Why this company and role specifically — reference something concrete about the company's engineering challenge, domain, or product. Do not open with "I am excited to apply." Do not be generic.
+
+**Para 2:** The two or three most relevant proof points from the CV, tied directly to what this role needs. Name the actual projects, systems, or outcomes.
+
+**Para 3:** Brief close — what the candidate brings that is genuinely unusual for this role type (technical depth + deployment experience, multilingual capability, security-constrained systems background, etc.). One sentence on availability and interest in next steps.
+
+## Output format
+
+Reply with only valid JSON matching exactly this schema (no fences, no prose):
 
 {
-  "subtitle": "<role tagline tailored for this specific application, e.g. 'Backend & Platform Engineer | Python · Kubernetes · AI Systems Integration'>",
-  "summary": "<2–3 sentence professional summary emphasising the strongest fit signals for this role. Reference specific experience.>",
+  "subtitle": "<role tagline tailored for this application, e.g. 'Senior Backend & Platform Engineer | Python · Kubernetes · Go'>",
+  "summary": "<2–3 sentence professional summary emphasising the strongest fit signals for this role>",
   "competencies": ["<tag 1>", "<tag 2>", ...],
   "experience": [
     {
       "company": "<company name>",
-      "period": "<date range, e.g. 'July 2022 – December 2025'>",
+      "period": "<date range>",
       "role": "<job title>",
       "location": "<city, country>",
       "bullets": ["<bullet 1>", "<bullet 2>", ...]
@@ -29,7 +64,7 @@ OUTPUT: reply with only valid JSON matching exactly this schema (no fences, no p
   "projects": [
     {
       "title": "<project name>",
-      "badge": "<optional badge, e.g. 'Open Source', 'In Development' — omit if none>",
+      "badge": "<optional badge — omit if none>",
       "description": "<one sentence description>",
       "tech": "<comma-separated technologies>"
     }
@@ -61,8 +96,4 @@ OUTPUT: reply with only valid JSON matching exactly this schema (no fences, no p
   }
 }
 
-COMPETENCY TAG GUIDANCE: 8–12 tags. Pick the most relevant technologies and capabilities for this specific role. Use precise terms (e.g. "Kubernetes", "FastAPI", "GitOps") not vague ones (e.g. "cloud").
-
-EXPERIENCE BULLET GUIDANCE: 4–6 bullets per role. Lead with the most relevant accomplishments for this job. Use active voice. Quantify where the CV supports it. Do not soften real achievements.
-
-COVER LETTER GUIDANCE: 3 paragraphs. Para 1: why this role specifically (not generic "I am excited to apply"). Para 2: the two or three most relevant proof points from the CV. Para 3: brief close — what you can offer, any relevant differentiators (location, language, remote experience). No filler sentences.
+COMPETENCY TAG GUIDANCE: 8–12 tags. Pick the most relevant technologies and capabilities for this specific role. Use precise terms (e.g. "Kubernetes", "FastAPI", "GitOps", "Air-Gapped Deployment") not vague ones (e.g. "cloud", "systems").

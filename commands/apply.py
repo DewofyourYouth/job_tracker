@@ -278,7 +278,7 @@ def render_cv_html(data: dict, profile: dict) -> str:
         "PHONE": candidate.get("phone", ""),
         "EMAIL": candidate.get("email", ""),
         "LINKEDIN_URL": linkedin_url,
-        "LINKEDIN_DISPLAY": linkedin_url.replace("https://", "").rstrip("/"),
+        "LINKEDIN_DISPLAY": "/" + linkedin_url.split("linkedin.com", 1)[-1].strip("/") if "linkedin.com" in linkedin_url else linkedin_url,
         "PORTFOLIO_URL": portfolio_url,
         "PORTFOLIO_DISPLAY": portfolio_url.replace("https://", "").rstrip("/"),
         "LOCATION": candidate.get("location", ""),
@@ -412,7 +412,8 @@ def _load_cost_config() -> dict:
     help="Override output directory (default: output/applications/<slug>/).",
 )
 @click.option("--open", "open_browser", is_flag=True, help="Open generated files in browser.")
-def apply_command(url, no_cover_letter, pdf, model, output_dir, open_browser):
+@click.option("--notes", default=None, help="Extra context appended to the CV before generation (e.g. skills relevant only to this role).")
+def apply_command(url, no_cover_letter, pdf, model, output_dir, open_browser, notes):
     """Generate a tailored CV and cover letter for a job listing.
 
     URL is optional — omit to pick interactively from listings.csv.
@@ -451,6 +452,8 @@ def apply_command(url, no_cover_letter, pdf, model, output_dir, open_browser):
         raise click.Abort()
 
     cv_text = CV_PATH.read_text(encoding="utf-8")
+    if notes:
+        cv_text += f"\n\n## Additional Context (for this application only)\n\n{notes}"
     profile_text = PROFILE_PATH.read_text(encoding="utf-8")
     profile = yaml.safe_load(profile_text) or {}
 
