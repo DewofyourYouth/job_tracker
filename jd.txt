@@ -1,0 +1,26 @@
+Zenity
+Share
+Senior Backend Engineer
+Tel Aviv-Yafo, Tel Aviv District, Israel · 1 day ago · 47 applicants
+Promoted by hirer · No response insights available yet
+
+Zenity is the first and only holistic platform built to secure and govern AI Agents from buildtime to runtime. We help organizations defend against security threats, meet compliance, and drive business productivity. Trusted by many of the world’s F500 companies, Zenity provides centralized visibility, vulnerability assessments, and governance by continuously scanning business-led development environments. We recently raised $38 million in a Series B funding, solidifying our position as a leader in the industry and enabling us to accelerate our mission of securing AI Agents everywhere.
+
+Job Description:
+
+Assume ownership of features and deliver value to customers
+Design scalable Big Data pipelines using cutting-edge technologies
+Deliver high-quality engineering applying common engineering principles
+Work on building GenAI & Copilots security solutions
+Think creatively about complex problems and deliver technological Innovation
+Collaborate with others via open discussions, Design Reviews, and Code Reviews
+
+Requirements:
+
+Passionate team player with minimum 5 years of experience
+Expertise with modern programming languages such as Python/C#/Java/Scala/Kotlin/TypeScript/JavaScript
+Experience writing code in Agile, CI/CD-based environments
+Experience working in a high-growth startup environment
+Advantage: Experience working with Big data technologies such as Kafka/Spark/OpenSearch
+Advantage: Experience working with Big data formats such as Parquet/Avro/Delta Lake/Iceberg
+Experience working on large-scale services based on AWS/Azure/GCP

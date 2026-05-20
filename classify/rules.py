@@ -344,7 +344,13 @@ def _any_phrase_in(phrases: list[str], text: str) -> str | None:
 # Stage 1: Hard pre-filter
 # ---------------------------------------------------------------------------
 
-_TRACKED_API_PREFIXES = ("greenhouse_api:", "lever_api:", "ashby_api:", "workable_api:")
+_TRACKED_API_PREFIXES = (
+    "greenhouse_api:",
+    "lever_api:",
+    "ashby_api:",
+    "workable_api:",
+    "rybtech:",
+)
 
 
 def _is_tracked_company(listing: RawListing) -> bool:

@@ -25,6 +25,12 @@ import click
 import yaml
 from rich.console import Console
 
+from classify.location_filter import (
+    ListingLocationFilter,
+    build_location_filter,
+    filter_listings_by_location,
+    format_location_filter_stats,
+)
 from classify.llm import DEFAULT_LLM_CONCURRENCY, DEFAULT_LLM_MAX_TOKENS, LLMEvaluation, batch_evaluate
 from classify.rules import (
     DEFAULT_TUNING_PATH,
@@ -50,13 +56,20 @@ from commands.report import DEFAULT_REPORT_MAX_TOKENS, REPORTS_DIR, batch_genera
 from commands.scan import (
     apply_portals_title_filter,
     criteria_hash,
+    dead_urls_to_skip,
     display_results,
     load_csv_index,
     upsert_listings_csv,
     urls_to_skip,
     write_json_output,
 )
-from injest.job_boards import fetch_description, ingest_all, load_portals_config
+from injest.job_boards import (
+    fetch_description,
+    filter_portals_config,
+    ingest_all,
+    load_portals_config,
+    source_counts,
+)
 from providers import get_client
 
 console = Console()
@@ -129,7 +142,11 @@ class ReportsPipeline:
     output stored on self.
     """
 
-    def __init__(self, cost_config: dict | None = None) -> None:
+    def __init__(
+        self,
+        cost_config: dict | None = None,
+        location_filter: ListingLocationFilter | None = None,
+    ) -> None:
         self.cv_text: str = ""
         self.profile_text: str = ""
         self.criteria: dict = {}
@@ -143,6 +160,7 @@ class ReportsPipeline:
         self.evaluated: list[tuple[ScoredListing, LLMEvaluation]] = []
         self._cost_config: dict = cost_config or {}
         self._criteria_hash: str = ""
+        self._location_filter = location_filter or ListingLocationFilter()
 
     # -------------------------------------------------------------------------
     # Stage 1
@@ -195,9 +213,22 @@ class ReportsPipeline:
         portals_path: Path = PORTALS_PATH,
         tuning_path: Path = DEFAULT_TUNING_PATH,
         top_n_for_llm: int | None = None,
+        rescan_existing: bool = False,
+        source_filters: tuple[str, ...] = (),
     ) -> ReportsPipeline:
         """Fetch raw job listings from all enabled portals.yaml sources."""
         self.portals_config = load_portals_config(portals_path)
+        if source_filters:
+            self.portals_config = filter_portals_config(self.portals_config, source_filters)
+            tracked_count, search_count = source_counts(self.portals_config)
+            console.print(
+                f"  [dim]Source filter {source_filters}: "
+                f"{tracked_count} tracked sources, {search_count} search queries.[/]"
+            )
+            if tracked_count == 0 and search_count == 0:
+                raise click.ClickException(
+                    f"No portals sources matched: {', '.join(source_filters)}"
+                )
         self.criteria = apply_portals_title_filter(self.criteria, self.portals_config)
         self.tuning = load_tuning_config(
             tuning_path,
@@ -212,7 +243,15 @@ class ReportsPipeline:
         console.print(f"  Found [bold]{len(self.raw_listings)}[/] raw listings.")
 
         index = load_csv_index()
-        skip = urls_to_skip(index, self._criteria_hash, self.config.tolerances.min_score_threshold)
+        skip = (
+            dead_urls_to_skip(index)
+            if rescan_existing
+            else urls_to_skip(index, self._criteria_hash, self.config.tolerances.min_score_threshold)
+        )
+        if rescan_existing:
+            console.print(
+                "  [dim]Reprocessing previously rejected listings (--rescan-existing).[/]"
+            )
         if skip:
             before = len(self.raw_listings)
             self.raw_listings = [l for l in self.raw_listings if l.url not in skip]
@@ -220,6 +259,15 @@ class ReportsPipeline:
                 f"  [dim]Skipping {before - len(self.raw_listings)} already-processed listings "
                 f"(dead or previously rejected with same criteria).[/]"
             )
+
+        if self._location_filter.enabled:
+            self.raw_listings, stats = filter_listings_by_location(
+                self.raw_listings,
+                self._location_filter,
+                criteria=self.criteria,
+                config=self.config,
+            )
+            console.print(f"  [dim]{format_location_filter_stats(stats)}[/]")
 
         # Candidates start as the filtered raw list; eliminate_irrelevant_jobs narrows them.
         self.candidates = list(self.raw_listings)
@@ -254,6 +302,18 @@ class ReportsPipeline:
             )
             enriched = _fetch_descriptions_for_vague_listings(vague)
             self.candidates = [enriched.get(l.url, l) for l in self.candidates]
+
+            if self._location_filter.enabled:
+                self.candidates, stats = filter_listings_by_location(
+                    self.candidates,
+                    self._location_filter,
+                    criteria=self.criteria,
+                    config=self.config,
+                )
+                if stats.dropped:
+                    console.print(
+                        f"  [dim]After description prefetch: {format_location_filter_stats(stats)}[/]"
+                    )
 
         upsert_listings_csv(raw=self.candidates, criteria_hash_val=self._criteria_hash)
         return self
@@ -306,6 +366,18 @@ class ReportsPipeline:
             for scored in self.top_listings:
                 updated_listing = fetch_description(scored.listing)
                 enriched.append(score_listing(updated_listing, self.criteria, self.config))
+            if self._location_filter.enabled:
+                filtered, stats = filter_listings_by_location(
+                    [s.listing for s in enriched],
+                    self._location_filter,
+                    criteria=self.criteria,
+                    config=self.config,
+                )
+                if stats.dropped:
+                    console.print(
+                        f"  [dim]After full posting fetch: {format_location_filter_stats(stats)}[/]"
+                    )
+                enriched = [score_listing(listing, self.criteria, self.config) for listing in filtered]
             self.top_listings = sorted(enriched, key=lambda s: s.total_score, reverse=True)
             upsert_listings_csv(scored=self.top_listings, criteria_hash_val=self._criteria_hash)
 
@@ -419,6 +491,9 @@ def build_reports_pipeline(
     min_report_score: int | None = None,
     reports_dir: Path = REPORTS_DIR,
     tuning_path: Path = DEFAULT_TUNING_PATH,
+    location_filter: ListingLocationFilter | None = None,
+    rescan_existing: bool = False,
+    source_filters: tuple[str, ...] = (),
 ) -> None:
     """Run the full end-to-end pipeline and write detailed markdown job reports."""
     cfg = load_api_cost_config()
@@ -440,10 +515,15 @@ def build_reports_pipeline(
     _semantic_model = sem_cfg.get("model") or None
 
     (
-        ReportsPipeline(cost_config=cfg)
+        ReportsPipeline(cost_config=cfg, location_filter=location_filter)
         .read_profile_and_cv()
         .generate_criteria(model=_crit_model, max_tokens=_crit_max_tokens)
-        .scan_for_jobs(tuning_path=tuning_path, top_n_for_llm=_top_n_for_llm)
+        .scan_for_jobs(
+            tuning_path=tuning_path,
+            top_n_for_llm=_top_n_for_llm,
+            rescan_existing=rescan_existing,
+            source_filters=source_filters,
+        )
         .eliminate_irrelevant_jobs()
         .score_relevant_positions(semantic_model=_semantic_model)
         .analyze_remaining_positions(
@@ -492,6 +572,42 @@ def build_reports_pipeline(
     help="Re-evaluate all listings via API, ignoring disk cache.",
 )
 @click.option(
+    "--rescan-existing",
+    is_flag=True,
+    default=False,
+    help="Re-score previously rejected listings instead of skipping them from listings.csv.",
+)
+@click.option(
+    "--location-include",
+    "location_includes",
+    multiple=True,
+    help="Keep listings whose location/workplace text contains this phrase. Repeat for multiple places.",
+)
+@click.option(
+    "--include-remote",
+    is_flag=True,
+    default=False,
+    help="Keep listings marked remote. Can be combined with --location-include or used by itself.",
+)
+@click.option(
+    "--min-location-score",
+    default=None,
+    type=click.FloatRange(0.0, 1.0),
+    help="Hard-filter listings below this criteria location score before LLM/report generation.",
+)
+@click.option(
+    "--keep-unknown-location",
+    is_flag=True,
+    default=False,
+    help="When a location filter is active, keep listings that have no location text.",
+)
+@click.option(
+    "--source",
+    "source_filters",
+    multiple=True,
+    help="Only scan sources whose name, method, URL, or query contains this text. Repeat for multiple sources.",
+)
+@click.option(
     "--reports-top-n",
     default=None,
     type=int,
@@ -523,6 +639,12 @@ def pipeline_command(
     llm_model: str,
     llm_concurrency: int,
     no_cache: bool,
+    rescan_existing: bool,
+    location_includes: tuple[str, ...],
+    include_remote: bool,
+    min_location_score: float | None,
+    keep_unknown_location: bool,
+    source_filters: tuple[str, ...],
     reports_top_n: int | None,
     reports_dir: str,
     tuning_path: str,
@@ -534,6 +656,14 @@ def pipeline_command(
         llm_model=llm_model,
         llm_concurrency=llm_concurrency,
         use_cache=not no_cache,
+        rescan_existing=rescan_existing,
+        source_filters=source_filters,
+        location_filter=build_location_filter(
+            include_locations=location_includes,
+            include_remote=include_remote,
+            min_location_score=min_location_score,
+            keep_unknown=keep_unknown_location,
+        ),
         detailed_top_n=reports_top_n,
         min_report_score=min_report_score,
         reports_dir=Path(reports_dir),

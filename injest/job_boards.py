@@ -11,6 +11,7 @@ catch-all fallback for any source without a recognised ATS URL.
   LeverIngester       — careers_url on jobs.lever.co → api.lever.co
   WorkableIngester    — careers_url on apply.workable.com → Workable REST API
   AshbyIngester       — careers_url on jobs.ashbyhq.com → Ashby posting API
+  RybTechIngester     — careers_url on rybtech.com/open-positions → HTML scrape
   BraveSearchIngester — everything else → Brave Search API (BRAVE_SEARCH_API_KEY required)
 
 Search queries (portals.yaml search_queries section) always use BraveSearchIngester.
@@ -23,8 +24,9 @@ import re
 import warnings
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from html import unescape
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 import httpx
 import yaml
@@ -75,6 +77,42 @@ def load_profile(path: Path = PROFILE_CONFIG_PATH) -> dict:
     return yaml.safe_load(path.read_text())
 
 
+def filter_portals_config(portals_config: dict, source_filters: tuple[str, ...]) -> dict:
+    """Return a portals config narrowed to source entries matching any filter."""
+    needles = tuple(f.strip().casefold() for f in source_filters if f and f.strip())
+    if not needles:
+        return portals_config
+
+    filtered = dict(portals_config)
+    filtered["tracked_companies"] = [
+        company
+        for company in portals_config.get("tracked_companies", [])
+        if _matches_source_filter(company, needles)
+    ]
+    filtered["search_queries"] = [
+        query
+        for query in portals_config.get("search_queries", [])
+        if _matches_source_filter(query, needles)
+    ]
+    return filtered
+
+
+def source_counts(portals_config: dict) -> tuple[int, int]:
+    """Return tracked-company and search-query counts for a portals config."""
+    return (
+        len(portals_config.get("tracked_companies", [])),
+        len(portals_config.get("search_queries", [])),
+    )
+
+
+def _matches_source_filter(entry: dict, needles: tuple[str, ...]) -> bool:
+    haystack = " ".join(
+        str(entry.get(key, ""))
+        for key in ("name", "scan_method", "careers_url", "api", "query", "scan_query")
+    ).casefold()
+    return any(needle in haystack for needle in needles)
+
+
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
@@ -94,6 +132,125 @@ def _company_name_from_url(url: str) -> str:
     hostname = urlparse(url).hostname or ""
     parts = hostname.split(".")
     return parts[-2].title() if len(parts) >= 2 else hostname
+
+
+def _page_url(url: str, page: int) -> str:
+    if page <= 1:
+        return url
+    parsed = urlparse(url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query["page"] = str(page)
+    return urlunparse(parsed._replace(query=urlencode(query)))
+
+
+def _gotfriends_listing_block(tail_html: str) -> str:
+    next_anchor = tail_html.lower().find("<a")
+    if 0 <= next_anchor < 3000:
+        return tail_html[:next_anchor]
+    return tail_html[:3500]
+
+
+def _looks_like_gotfriends_job(title: str, block_html: str) -> bool:
+    if not title:
+        return False
+    title_lower = title.casefold()
+    blocked_titles = (
+        "דף הבית",
+        "דרושים הייטק",
+        "שלחו",
+        "לכל משרות",
+        "תחום",
+        "מקצוע",
+        "אזור",
+    )
+    if any(blocked in title_lower for blocked in blocked_titles):
+        return False
+    block_text = _strip_html(unescape(block_html))
+    return "מס' משרה" in block_text and "תיאור המשרה" in block_text
+
+
+_GOTFRIENDS_LOCATION_LABELS = {
+    'ת"א והמרכז': 'Israel - Tel Aviv / Center',
+    "תל אביב": "Israel - Tel Aviv",
+    "השרון": "Israel - Sharon",
+    "ירושלים": "Israel - Jerusalem",
+    "חיפה והצפון": "Israel - Haifa / North",
+    "באר שבע והדרום": "Israel - Beersheba / South",
+    "שפלה": "Israel - Shfela",
+    "אילת": "Israel - Eilat",
+    "אחר": "Other / relocation",
+}
+
+
+def _extract_gotfriends_location(text: str) -> str | None:
+    match = re.search(r"מיקום:\s*([^:]+?)\s+תיאור המשרה:", text)
+    if match:
+        return " ".join(match.group(1).split())
+    match = re.search(r"מיקום:\s*([^\n\r]+?)(?:\s{2,}|תיאור המשרה:|דרישות המשרה:|מס' משרה:)", text)
+    if match:
+        return " ".join(match.group(1).split())
+    return None
+
+
+def _normalise_gotfriends_location(location: str | None) -> str | None:
+    if not location:
+        return "Israel"
+    if location in _GOTFRIENDS_LOCATION_LABELS:
+        return _GOTFRIENDS_LOCATION_LABELS[location]
+    if "רילוקיישן" in location or location == "אחר":
+        return "Other / relocation"
+    return f"Israel - {location}"
+
+
+def _extract_gotfriends_job_id(text: str) -> str:
+    match = re.search(r"מס' משרה:\s*(\d+)", text)
+    return match.group(1) if match else ""
+
+
+def _trim_gotfriends_description(text: str) -> str:
+    text = " ".join(text.split())
+    stop = text.find("שלחו קורות חיים")
+    if stop > 0:
+        text = text[:stop]
+    return text[:4000]
+
+
+def _extract_rybtech_location(description: str) -> str:
+    text = description.casefold()
+    if "relocation" in text and "israel" not in text:
+        return "Other / relocation"
+
+    region_patterns = [
+        ("Tel Aviv", ("tel aviv", "tel-aviv")),
+        ("Jerusalem", ("jerusalem",)),
+        ("Shfela", ("shfela", "shefela")),
+        ("Sharon", ("sharon",)),
+        ("Haifa / North", ("haifa", "north israel", "northern israel")),
+        ("Beersheba / South", ("beersheba", "be'er sheva", "south israel", "southern israel")),
+    ]
+    matched = [label for label, patterns in region_patterns if any(p in text for p in patterns)]
+    if matched:
+        unique = list(dict.fromkeys(matched))
+        suffix = " / ".join(unique[:2])
+        location = f"Israel - {suffix}"
+    else:
+        location = "Israel"
+
+    if "hybrid" in text:
+        return f"{location} (Hybrid)"
+    if "onsite" in text or "on-site" in text or "5 days/week" in text:
+        return f"{location} (Onsite)"
+    if "remote" in text:
+        return f"{location} (Remote)"
+    return location
+
+
+def _format_rybtech_date(date_text: str) -> str:
+    match = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", date_text)
+    if not match:
+        return date_text.strip()
+    month, day, year = (int(part) for part in match.groups())
+    return f"{year:04d}-{month:02d}-{day:02d}"
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +436,193 @@ class AshbyIngester(IngestionSource):
 
 
 # ---------------------------------------------------------------------------
+# GotFriends
+# ---------------------------------------------------------------------------
+
+class GotFriendsIngester(IngestionSource):
+    strategy_name = "gotfriends"
+
+    @classmethod
+    def can_handle(cls, config: dict) -> bool:
+        return "gotfriends.co.il" in config.get("careers_url", "")
+
+    def fetch(self, config: dict) -> list[RawListing]:
+        base_url = config["careers_url"]
+        max_pages = int(config.get("max_pages", 3))
+        company_name = config.get("name", "GotFriends")
+        listings: list[RawListing] = []
+        seen: set[str] = set()
+
+        for page in range(1, max_pages + 1):
+            url = _page_url(base_url, page)
+            try:
+                resp = httpx.get(
+                    url,
+                    headers=_HTTP_HEADERS,
+                    timeout=_FETCH_TIMEOUT,
+                    follow_redirects=True,
+                )
+                resp.raise_for_status()
+            except Exception as exc:
+                warnings.warn(f"[gotfriends] {company_name} page {page}: {exc}")
+                break
+
+            page_listings = self._extract_listings(resp.text, url, company_name)
+            new_listings = []
+            for listing in page_listings:
+                key = _normalise_url(listing.url)
+                if key not in seen:
+                    seen.add(key)
+                    new_listings.append(listing)
+            if not new_listings:
+                break
+            listings.extend(new_listings)
+
+        return listings
+
+    @staticmethod
+    def _extract_listings(html_text: str, page_url: str, company_name: str) -> list[RawListing]:
+        listings: list[RawListing] = []
+        for match in re.finditer(
+            r"<a\s+[^>]*href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>",
+            html_text,
+            re.IGNORECASE | re.DOTALL,
+        ):
+            href, raw_title = match.groups()
+            url = urljoin(page_url, unescape(href))
+            if "gotfriends.co.il" not in (urlparse(url).hostname or ""):
+                continue
+            if "/jobslobby/" not in urlparse(url).path:
+                continue
+
+            tail = html_text[match.end():match.end() + 3500]
+            block = _gotfriends_listing_block(tail)
+            title = _strip_html(unescape(raw_title))
+            if not _looks_like_gotfriends_job(title, block):
+                continue
+
+            tail_text = _strip_html(unescape(block))
+            original_location = _extract_gotfriends_location(tail_text)
+            location = _normalise_gotfriends_location(original_location)
+            job_id = _extract_gotfriends_job_id(tail_text)
+            description = _trim_gotfriends_description(tail_text)
+            listings.append(RawListing(
+                title=title,
+                company=company_name,
+                url=_normalise_url(url),
+                location=location,
+                description=description,
+                source=f"gotfriends:{company_name}",
+                raw={
+                    "job_id": job_id,
+                    "location": location,
+                    "original_location": original_location,
+                    "source_page": page_url,
+                },
+            ))
+        return listings
+
+
+# ---------------------------------------------------------------------------
+# RYB Technologies
+# ---------------------------------------------------------------------------
+
+class RybTechIngester(IngestionSource):
+    strategy_name = "rybtech"
+
+    @classmethod
+    def can_handle(cls, config: dict) -> bool:
+        return "rybtech.com" in config.get("careers_url", "")
+
+    def fetch(self, config: dict) -> list[RawListing]:
+        base_url = config["careers_url"]
+        max_pages = int(config.get("max_pages", 2))
+        company_name = config.get("name", "RYB Technologies")
+        listings: list[RawListing] = []
+        seen: set[str] = set()
+
+        for page in range(1, max_pages + 1):
+            url = base_url if page == 1 else urljoin(base_url, f"/open-positions/previous/{page}")
+            try:
+                resp = httpx.get(
+                    url,
+                    headers=_HTTP_HEADERS,
+                    timeout=_FETCH_TIMEOUT,
+                    follow_redirects=True,
+                )
+                resp.raise_for_status()
+            except Exception as exc:
+                warnings.warn(f"[rybtech] {company_name} page {page}: {exc}")
+                break
+
+            page_listings = self._extract_listings(resp.text, url, company_name)
+            new_listings = []
+            for listing in page_listings:
+                key = _normalise_url(listing.url)
+                if key not in seen:
+                    seen.add(key)
+                    new_listings.append(listing)
+            if not new_listings:
+                break
+            listings.extend(new_listings)
+
+        return listings
+
+    @staticmethod
+    def _extract_listings(html_text: str, page_url: str, company_name: str) -> list[RawListing]:
+        listings: list[RawListing] = []
+        for match in re.finditer(
+            r'<div id="blog-post-[^"]+" class="blog-post">(.*?)(?=<div id="blog-post-|<div class="blog-page-nav-previous"|</div>\s*</div>\s*</td>)',
+            html_text,
+            re.IGNORECASE | re.DOTALL,
+        ):
+            block = match.group(1)
+            title_match = re.search(
+                r'<a[^>]*class="[^"]*blog-title-link[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)</a>',
+                block,
+                re.IGNORECASE | re.DOTALL,
+            )
+            if not title_match:
+                continue
+            href, raw_title = title_match.groups()
+            title = _strip_html(unescape(raw_title))
+            if not title:
+                continue
+
+            date_match = re.search(
+                r'<span class="date-text">\s*([^<]+?)\s*</span>',
+                block,
+                re.IGNORECASE | re.DOTALL,
+            )
+            content_match = re.search(
+                r'<div class="blog-content">\s*(.*?)\s*<div class="blog-social',
+                block,
+                re.IGNORECASE | re.DOTALL,
+            )
+            if not content_match:
+                content_match = re.search(
+                    r'<div class="blog-content">\s*(.*?)\s*<div class="blog-comments-bottom"',
+                    block,
+                    re.IGNORECASE | re.DOTALL,
+                )
+            description = _strip_html(unescape(content_match.group(1))) if content_match else ""
+            location = _extract_rybtech_location(description)
+            listings.append(RawListing(
+                title=title,
+                company=company_name,
+                url=_normalise_url(urljoin(page_url, unescape(href))),
+                location=location,
+                description=description[:4000],
+                source=f"rybtech:{company_name}",
+                raw={
+                    "date_posted": _format_rybtech_date(date_match.group(1)) if date_match else "",
+                    "source_page": page_url,
+                },
+            ))
+        return listings
+
+
+# ---------------------------------------------------------------------------
 # Brave Search (catch-all fallback)
 # ---------------------------------------------------------------------------
 
@@ -363,6 +707,8 @@ _REGISTRY: list[type[IngestionSource]] = [
     LeverIngester,
     WorkableIngester,
     AshbyIngester,
+    GotFriendsIngester,
+    RybTechIngester,
     BraveSearchIngester,
 ]
 

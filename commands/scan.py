@@ -33,6 +33,11 @@ import yaml
 from rich.console import Console
 from rich.table import Table
 
+from classify.location_filter import (
+    build_location_filter,
+    filter_listings_by_location,
+    format_location_filter_stats,
+)
 from classify.llm import DEFAULT_LLM_CONCURRENCY, LLMEvaluation, batch_evaluate
 from classify.rules import (
     DEFAULT_TUNING_PATH,
@@ -47,7 +52,13 @@ from classify.rules import (
     rank_and_narrow,
     score_listing,
 )
-from injest.job_boards import fetch_description, ingest_all, load_portals_config
+from injest.job_boards import (
+    fetch_description,
+    filter_portals_config,
+    ingest_all,
+    load_portals_config,
+    source_counts,
+)
 from providers import get_client
 
 console = Console()
@@ -131,6 +142,11 @@ def urls_to_skip(
             except ValueError:
                 pass
     return skip
+
+
+def dead_urls_to_skip(index: dict[str, dict[str, str]]) -> set[str]:
+    """Return URLs marked dead in the CSV."""
+    return {url for url, row in index.items() if row.get("Status") == "dead"}
 
 
 def apply_portals_title_filter(criteria: dict, portals_config: dict) -> dict:
@@ -445,6 +461,14 @@ _T = ScoringTolerances()
               help="Fetch full job descriptions before LLM evaluation (slower, better quality).")
 @click.option("--skip-llm/--no-skip-llm", default=False,
               help="Stop after rule scoring. Useful for tuning weights without spending tokens.")
+@click.option("--location-include", "location_includes", multiple=True,
+              help="Keep listings whose location/workplace text contains this phrase. Repeat for multiple places.")
+@click.option("--include-remote", is_flag=True, default=False,
+              help="Keep listings marked remote. Can be combined with --location-include or used by itself.")
+@click.option("--min-location-score", default=None, type=click.FloatRange(0.0, 1.0),
+              help="Hard-filter listings below this criteria location score before LLM evaluation.")
+@click.option("--keep-unknown-location", is_flag=True, default=False,
+              help="When a location filter is active, keep listings that have no location text.")
 @click.option("--llm-model",  default="gpt-4o", show_default=True,
               help="OpenAI model to use for evaluation.")
 @click.option("--llm-concurrency", default=DEFAULT_LLM_CONCURRENCY, show_default=True,
@@ -452,6 +476,8 @@ _T = ScoringTolerances()
               help="Concurrent LLM evaluations to run.")
 @click.option("--no-cache",   is_flag=True, default=False,
               help="Ignore disk cache and re-evaluate all listings via API.")
+@click.option("--rescan-existing", is_flag=True, default=False,
+              help="Re-score previously rejected listings instead of skipping them from listings.csv.")
 @click.option("--output-json", type=click.Path(), default=None,
               help="Write full results JSON to this path (LLM stage required).")
 @click.option("--criteria", "criteria_path",
@@ -466,6 +492,8 @@ _T = ScoringTolerances()
               default=str(Path("data/portals.yaml")), show_default=True,
               type=click.Path(exists=True),
               help="Path to portals.yaml config.")
+@click.option("--source", "source_filters", multiple=True,
+              help="Only scan sources whose name, method, URL, or query contains this text. Repeat for multiple sources.")
 def scan_command(
     weight_role_fit: float | None,
     weight_seniority: float | None,
@@ -478,18 +506,35 @@ def scan_command(
     location_override: float | None,
     fetch_descriptions: bool,
     skip_llm: bool,
+    location_includes: tuple[str, ...],
+    include_remote: bool,
+    min_location_score: float | None,
+    keep_unknown_location: bool,
     llm_model: str,
     llm_concurrency: int,
     no_cache: bool,
+    rescan_existing: bool,
     output_json: str | None,
     criteria_path: str,
     tuning_path: str,
     portals_path: str,
+    source_filters: tuple[str, ...],
 ) -> None:
     """Scan job boards, score listings, and evaluate top results with LLM."""
 
     criteria = load_criteria(Path(criteria_path))
     portals_config = load_portals_config(Path(portals_path))
+    if source_filters:
+        portals_config = filter_portals_config(portals_config, source_filters)
+        tracked_count, search_count = source_counts(portals_config)
+        console.print(
+            f"  [dim]Source filter {source_filters}: "
+            f"{tracked_count} tracked sources, {search_count} search queries.[/]"
+        )
+        if tracked_count == 0 and search_count == 0:
+            raise click.ClickException(
+                f"No portals sources matched: {', '.join(source_filters)}"
+            )
     criteria = apply_portals_title_filter(criteria, portals_config)
     tuning_file = Path(tuning_path)
     tuning_required = tuning_file != DEFAULT_TUNING_PATH
@@ -516,6 +561,12 @@ def scan_command(
         config.tolerances.location_override_role_fit = location_override
 
     chash = criteria_hash(criteria)
+    location_filter = build_location_filter(
+        include_locations=location_includes,
+        include_remote=include_remote,
+        min_location_score=min_location_score,
+        keep_unknown=keep_unknown_location,
+    )
 
     # -----------------------------------------------------------------------
     # Stage 1: Ingest
@@ -525,7 +576,15 @@ def scan_command(
     console.print(f"  Found [bold]{len(raw_listings)}[/] raw listings.")
 
     index = load_csv_index()
-    skip = urls_to_skip(index, chash, config.tolerances.min_score_threshold)
+    skip = (
+        dead_urls_to_skip(index)
+        if rescan_existing
+        else urls_to_skip(index, chash, config.tolerances.min_score_threshold)
+    )
+    if rescan_existing:
+        console.print(
+            "  [dim]Reprocessing previously rejected listings (--rescan-existing).[/]"
+        )
     if skip:
         before = len(raw_listings)
         raw_listings = [l for l in raw_listings if l.url not in skip]
@@ -533,6 +592,15 @@ def scan_command(
             f"  [dim]Skipping {before - len(raw_listings)} already-processed listings "
             f"(dead or previously rejected with same criteria).[/]"
         )
+
+    if location_filter.enabled:
+        raw_listings, stats = filter_listings_by_location(
+            raw_listings,
+            location_filter,
+            criteria=criteria,
+            config=config,
+        )
+        console.print(f"  [dim]{format_location_filter_stats(stats)}[/]")
 
     # -----------------------------------------------------------------------
     # Stage 2: Rule-based filter and rank
@@ -566,6 +634,18 @@ def scan_command(
                 top[i] = score_listing(updated_listing, criteria, config)
             except Exception as e:
                 console.print(f"  [yellow]Warning:[/] couldn't fetch description: {e}")
+        if location_filter.enabled:
+            filtered_top, stats = filter_listings_by_location(
+                [s.listing for s in top],
+                location_filter,
+                criteria=criteria,
+                config=config,
+            )
+            if stats.dropped:
+                console.print(
+                    f"  [dim]After description fetch: {format_location_filter_stats(stats)}[/]"
+                )
+            top = [score_listing(listing, criteria, config) for listing in filtered_top]
         top.sort(key=lambda s: s.total_score, reverse=True)
         upsert_listings_csv(scored=top, criteria_hash_val=chash)
 

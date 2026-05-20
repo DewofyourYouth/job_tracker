@@ -2,10 +2,10 @@
 # Copy this file to config/portals.yml, then tune it for your lane.
 #
 # Current zero-token scanner behavior:
-# - scans enabled tracked_companies with detectable supported ATS APIs
-# - supports Greenhouse, Ashby, and Lever
+# - scans enabled tracked_companies with detectable supported ATS/API/scraper sources
+# - supports Greenhouse, Ashby, Lever, Workable, RYB Tech, and Brave Search
 # - filters only on title_filter.positive and title_filter.negative
-# - ignores search_queries, seniority_boost, scan_method, and scan_query
+# - runs search_queries through Brave Search when BRAVE_SEARCH_API_KEY is set
 # - detects ATS families from explicit api: or ATS-shaped careers_url values
 #
 # careers_url rule:
@@ -78,6 +78,13 @@ tracked_companies:
   - name: Example Lever Company
     careers_url: https://jobs.lever.co/example-company
     notes: "ATS-hosted fallback example. Lever board detected from careers_url."
+    enabled: false
+
+  - name: RYB Technologies - Open Positions Israel
+    careers_url: https://www.rybtech.com/open-positions
+    scan_method: rybtech
+    max_pages: 2
+    notes: "Weebly blog job listings with full descriptions."
     enabled: false
 
   # Unsupported example kept disabled on purpose.

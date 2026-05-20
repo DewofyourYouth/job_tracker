@@ -258,8 +258,22 @@ job scan --skip-llm
 job scan --top-n 150
 job scan --fetch-descriptions
 job scan --llm-concurrency 8
+job scan --min-location-score 0.75 --skip-llm
+job scan --location-include Israel --include-remote
+job scan --rescan-existing --location-include Israel --include-remote
+job scan --source gotfriends --skip-llm
+job scan --source rybtech --skip-llm
 job scan --output-json output/scan.json
 ```
+
+Location filters are opt-in hard filters applied before LLM evaluation. Use
+`--min-location-score` to reuse `scoring-criteria.yaml` location rules, or
+combine repeatable `--location-include <phrase>` with `--include-remote` for an
+explicit allow-list. Add `--keep-unknown-location` if you want ambiguous listings
+to survive until description fetching. Add `--rescan-existing` when changing
+filter policy after a run, so previously rejected rows in `listings.csv` are
+re-scored instead of skipped. Use repeatable `--source <text>` to limit ingestion
+to matching configured sources by name, method, URL, or query.
 
 ### `pipeline`
 
@@ -268,6 +282,11 @@ End-to-end orchestration: loads or generates criteria → scans → filters → 
 ```bash
 job pipeline
 job pipeline --llm-concurrency 8
+job pipeline --min-location-score 0.75
+job pipeline --location-include Israel --include-remote
+job pipeline --rescan-existing --location-include Israel --include-remote
+job pipeline --source gotfriends --rescan-existing --location-include Israel
+job pipeline --source rybtech --rescan-existing --location-include Israel
 job pipeline --reports-top-n 25
 job pipeline --min-report-score 6
 job pipeline --tuning-config data/scoring-tuning.yaml
