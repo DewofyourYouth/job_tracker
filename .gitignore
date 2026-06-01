@@ -10,3 +10,4 @@ data/listings.csv
 .job_tracker/
 **.pyc
 output
+.idea

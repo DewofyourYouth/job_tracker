@@ -33,10 +33,13 @@ from classify.rules import (
     score_listing,
 )
 from commands.pipeline import _extract_candidate_summary
+from commands.report import DEFAULT_REPORT_MAX_TOKENS, REPORTS_DIR, batch_generate_reports
 from commands.scan import CRITERIA_PATH, display_results, load_csv_index, upsert_listings_csv
 from providers import get_client
 
 console = Console()
+
+CV_PATH = Path("data/cv.md")
 
 _FETCH_TIMEOUT = 15
 _HTTP_HEADERS = {
@@ -72,6 +75,9 @@ def _company_from_url(url: str) -> str:
     }
     if hostname in ats_hosts and path_parts:
         return path_parts[0].replace("-", " ").title()
+    # myworkdayjobs.com: tenant is the first subdomain label (e.g. snyk.wd103.myworkdayjobs.com)
+    if "myworkdayjobs.com" in hostname:
+        return hostname.split(".")[0].title()
     parts = hostname.split(".")
     return parts[-2].title() if len(parts) >= 2 else hostname
 
@@ -204,6 +210,64 @@ def _fetch_workable(url: str) -> RawListing:
     return _fetch_html(url)
 
 
+def _fetch_myworkdayjobs(url: str) -> RawListing:
+    """Fetch a job from Workday (*.myworkdayjobs.com).
+
+    URL format: https://{tenant}.wd{N}.myworkdayjobs.com/{board}/job/{location}/{Title_JobId}
+    Company and title are parsed from the URL since Workday pages are JS-rendered.
+    Description is fetched via Workday's unofficial CXS JSON API.
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+    tenant = hostname.split(".")[0]
+    company_name = tenant.title()
+
+    path_parts = [p for p in parsed.path.strip("/").split("/") if p]
+    # Drop optional locale prefix (e.g. "en-US", "fr-FR") before the board slug
+    if path_parts and re.match(r"^[a-z]{2}(-[A-Z]{2})?$", path_parts[0]):
+        path_parts = path_parts[1:]
+    # path_parts: [board, "job", location_slug, Title_JobId]
+    board = path_parts[0] if path_parts else ""
+
+    title_slug = path_parts[-1] if len(path_parts) >= 4 else ""
+    # Strip trailing job-req ID (e.g. "_JR100584" or "_12345")
+    title_raw = re.sub(r"_[A-Z]{0,4}\d+$", "", title_slug)
+    job_title = title_raw.replace("-", " ").title() or "Unknown Position"
+
+    location: str | None = None
+    if len(path_parts) >= 4:
+        loc_raw = path_parts[2]
+        location = re.sub(r"-{2,}", " — ", loc_raw).replace("-", " ").strip() or None
+
+    description: str | None = None
+    job_id = re.search(r"_([A-Z]{0,4}\d+)$", title_slug)
+    if job_id and board:
+        req_id = job_id.group(1)
+        api_url = f"https://{hostname}/wday/cxs/{tenant}/{board}/job/{req_id}"
+        try:
+            resp = httpx.get(api_url, headers=_HTTP_HEADERS, timeout=_FETCH_TIMEOUT)
+            if resp.status_code == 200:
+                data = resp.json()
+                info = data.get("jobPostingInfo", data)
+                job_title = info.get("title", job_title)
+                desc_raw = info.get("jobDescription", "")
+                if isinstance(desc_raw, dict):
+                    desc_raw = desc_raw.get("descriptor", "")
+                if desc_raw:
+                    description = _strip_html(str(desc_raw))
+        except Exception:
+            pass
+
+    return RawListing(
+        title=job_title,
+        company=company_name,
+        url=url,
+        source="manual",
+        location=location,
+        description=description,
+    )
+
+
 def _fetch_html(url: str) -> RawListing:
     """Fallback: fetch the HTML page and extract what we can."""
     resp = httpx.get(url, headers=_HTTP_HEADERS, timeout=_FETCH_TIMEOUT, follow_redirects=True)
@@ -236,6 +300,8 @@ def fetch_listing_from_url(url: str) -> RawListing:
         return _fetch_ashby(url)
     if "workable.com" in hostname:
         return _fetch_workable(url)
+    if "myworkdayjobs.com" in hostname:
+        return _fetch_myworkdayjobs(url)
     return _fetch_html(url)
 
 
@@ -345,6 +411,19 @@ def _display_rule_violations(scored: ScoredListing) -> None:
     default=None,
     help="Supply the job description text directly, bypassing URL scraping. Pass '-' to read from stdin.",
 )
+@click.option(
+    "--report/--no-report",
+    default=True,
+    show_default=True,
+    help="Generate a detailed markdown report after evaluation.",
+)
+@click.option(
+    "--reports-dir",
+    default=str(REPORTS_DIR),
+    show_default=True,
+    type=click.Path(),
+    help="Directory to write detailed markdown reports into.",
+)
 def evaluate_command(
     urls: tuple[str, ...],
     no_cache: bool,
@@ -355,6 +434,8 @@ def evaluate_command(
     company: str | None,
     location: str | None,
     description_text: str | None,
+    report: bool,
+    reports_dir: str,
 ) -> None:
     """Fetch and evaluate one or more job posting URLs directly."""
     import sys
@@ -447,3 +528,26 @@ def evaluate_command(
 
     if save:
         upsert_listings_csv(evaluated=evaluated)
+
+    if report and evaluated:
+        cv_text = CV_PATH.read_text(encoding="utf-8") if CV_PATH.exists() else ""
+        profile_text = PROFILE_PATH.read_text(encoding="utf-8") if PROFILE_PATH.exists() else ""
+        cost_cfg_path = Path("data/api-cost-config.yaml")
+        cost_cfg = yaml.safe_load(cost_cfg_path.read_text()) if cost_cfg_path.exists() else {}
+        rep_cfg = cost_cfg.get("report_generation", {})
+        report_client = get_client(cost_cfg, stage="report_generation")
+
+        console.print("\n[bold]Generating detailed reports...[/]")
+        paths_by_url = batch_generate_reports(
+            report_client,
+            evaluated,
+            criteria,
+            cv_text,
+            profile_text,
+            model=rep_cfg.get("model", "gpt-4o"),
+            max_tokens=int(rep_cfg.get("max_tokens", DEFAULT_REPORT_MAX_TOKENS)),
+            min_llm_score=0,
+            output_dir=Path(reports_dir),
+        )
+        if save and paths_by_url:
+            upsert_listings_csv(report_paths={url: str(p) for url, p in paths_by_url.items()})

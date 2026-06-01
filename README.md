@@ -104,7 +104,8 @@ job-tracker/
 │   ├── generate_criteria.py   # LLM-assisted criteria generation from CV + profile
 │   ├── report.py              # Detailed markdown report generation
 │   ├── profile_review.py      # CV ↔ profile consistency review
-│   └── apply.py               # Tailored CV + cover letter generation and PDF export
+│   ├── apply.py               # Tailored CV + cover letter generation and PDF export
+│   └── track.py               # Application lifecycle tracker (applied → interview → offer)
 ├── classify/
 │   ├── score.py               # Rule-based scoring engine
 │   ├── llm.py                 # Quick LLM evaluation (cached)
@@ -133,7 +134,8 @@ job-tracker/
     ├── portals.yaml           # Private — search/ATS source configuration
     ├── scoring-criteria.yaml  # Private — generated scoring rules
     ├── scoring-tuning.yaml    # Private — numeric scoring overrides
-    └── api-cost-config.yaml   # Private — per-stage model/token/volume config
+    ├── api-cost-config.yaml   # Private — per-stage model/token/volume config
+    └── applications.csv       # Private — manually-tracked application lifecycle
 ```
 
 **Key data flows:**
@@ -145,6 +147,8 @@ job-tracker/
 - `output/llm_cache/` → hash-keyed evaluation cache (skips re-evaluation on rerun)
 - `output/reports/` → URL-keyed markdown reports (skips regeneration if report exists)
 - `data/listings.csv` + `data/cv.md` → `apply` → `output/applications/<slug>/cv.pdf` + `cover-letter.pdf`
+- `job evaluate` / `job apply` → detailed report → `output/reports/<company>-<title>-<hash>.md`
+- `job track` → `data/applications.csv` (application lifecycle: applied → phone_screen → interview → offer/rejected/withdrew)
 
 ---
 
@@ -297,10 +301,16 @@ job pipeline --output-json output/pipeline.json
 
 Fetches and evaluates one or more job posting URLs directly, outside the pipeline. Runs the full rule scorer and LLM evaluator and displays the result. Useful for listings found via LinkedIn tip, recruiter email, or any source not covered by your portals config. Rule disqualification is shown as a warning but does not block LLM evaluation — you asked for it explicitly.
 
+After evaluation, a detailed markdown report is generated automatically to `output/reports/` and the path is saved to `listings.csv`. Use `--no-report` to skip.
+
+ATS-aware fetching is supported for Greenhouse, Lever, Ashby, Workable, and Workday (`*.myworkdayjobs.com`). For Workday, company name, job title, and location are parsed directly from the URL structure so they are always correct even when the page is JS-rendered.
+
 ```bash
-job evaluate <url>                                      # fetch and evaluate
+job evaluate <url>                                      # fetch, evaluate, and generate report
 job evaluate <url1> <url2>                              # batch evaluate
 job evaluate <url> --no-cache                           # re-evaluate, ignore cache
+job evaluate <url> --no-report                          # skip detailed report generation
+job evaluate <url> --reports-dir output/reports         # override report output directory
 job evaluate <url> --model gpt-4.1                      # override model
 job evaluate <url> --no-save                            # display only, don't write to CSV
 job evaluate <url> --title "Staff Engineer"             # override scraped title
@@ -318,6 +328,8 @@ Generates a tailored CV and cover letter for a specific job listing. One LLM cal
 
 URL is optional. Omit it to pick interactively from the pipeline's recommendations. The picker shows only LLM-evaluated listings with a recommendation of `apply` or `maybe`, sorted by fit score, with the pipeline's fit summary visible so you can remind yourself why a listing scored well before committing. Listings marked `skip` are excluded. Run `job pipeline` before `job apply` to populate these recommendations.
 
+If the listing was previously evaluated (has a fit score and summary in `listings.csv`), a detailed markdown report is generated to `output/reports/` after the materials are written. Use `--no-report` to skip. Use `--track` to record the application in `data/applications.csv`.
+
 ```bash
 job apply <url>                      # apply to a specific listing
 job apply                            # pick interactively from listings.csv
@@ -326,6 +338,9 @@ job apply <url> --pdf --open         # export PDFs and open them
 job apply <url> --no-cover-letter    # CV only, skip cover letter
 job apply <url> --model gpt-4.1      # override model for this run
 job apply <url> --output-dir ~/Desktop/application
+job apply <url> --track              # also record in applications.csv
+job apply <url> --no-report          # skip detailed report generation
+job apply <url> --notes "Emphasise Kafka experience for this role"
 ```
 
 Output goes to `output/applications/<company>-<title>-<hash>/`:
@@ -335,6 +350,27 @@ Output goes to `output/applications/<company>-<title>-<hash>/`:
 PDF export requires Playwright (`pip install playwright`) using your installed Google Chrome — no separate browser binary is downloaded.
 
 The model, token budget, and default margins are configurable in `data/api-cost-config.yaml` under `apply_generation`.
+
+### `track`
+
+Tracks the lifecycle of jobs you've actually applied to, separate from the pipeline's discovery and evaluation flow. State is stored in `data/applications.csv`.
+
+Valid statuses: `applied` → `phone_screen` → `interview` → `offer` / `rejected` / `withdrew`
+
+```bash
+job track add                        # pick from pipeline recommendations
+job track add <url>                  # record a specific listing
+job track add -m                     # manually enter any job (LinkedIn, referral, etc.)
+job track add -m --company Acme --title "Staff Eng" --source LinkedIn
+job track update                     # pick from tracked list, update status interactively
+job track update <url> --status interview
+job track update <url> --notes "Second round scheduled for June 3"
+job track update <url> --append-notes "Offer received"
+job track list                       # show all tracked applications
+job track list --status interview    # filter by status
+```
+
+`job track add -m` prompts for URL, company, title, and notes — use it for jobs applied to outside the tracker (LinkedIn Easy Apply, referrals, company career pages).
 
 ---
 
@@ -429,10 +465,11 @@ CLI flags override model and volume values for a single run. Provider selection 
 ### Application materials
 
 - ✅ `job apply` generates a tailored CV and cover letter, renders them into HTML templates, and exports PDFs via Playwright CDP.
+- ✅ `job apply` and `job evaluate` both generate a detailed markdown fit report after their main action, writing it to `output/reports/` and saving the path to `listings.csv`.
 
 ### Application tracking
 
-- Status lifecycle: `DISCOVERED → TRIAGED → APPLY_READY → APPLIED → CONFIRMED → INTERVIEW → OFFER/REJECTED/ARCHIVED`.
+- ✅ `job track` — full lifecycle tracker (`applied → phone_screen → interview → offer/rejected/withdrew`) backed by `data/applications.csv`. Supports manual entry for jobs applied outside the pipeline (`-m` flag), interactive status updates, and filtered list view.
 - Email-based status detection for application receipts, rejections, and interview requests.
 
 ### TUI

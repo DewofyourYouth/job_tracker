@@ -32,6 +32,76 @@ DEFAULT_APPLY_MAX_TOKENS = 3500
 
 
 # ---------------------------------------------------------------------------
+# Report generation from a listings.csv row
+# ---------------------------------------------------------------------------
+
+def _generate_report_from_listing(listing: dict) -> Path | None:
+    """Generate or find a detailed report for a listing using its CSV evaluation data.
+
+    Returns the report path if successful, or None if the listing hasn't been evaluated.
+    """
+    from classify.llm import LLMEvaluation
+    from classify.rules import CriterionScore, RawListing, ScoredListing
+    from commands.report import REPORTS_DIR, generate_detailed_report, write_report_to_disk
+    from commands.scan import upsert_listings_csv
+
+    score_str = listing.get("Score", "")
+    fit_summary = listing.get("Fit Summary", "")
+    if not score_str or not fit_summary:
+        return None
+
+    existing_path_str = listing.get("Report Path", "")
+    if existing_path_str and Path(existing_path_str).exists():
+        return Path(existing_path_str)
+
+    raw = RawListing(
+        title=listing.get("Job Title", ""),
+        company=listing.get("Company", ""),
+        url=listing.get("Url", ""),
+        source=listing.get("Source", ""),
+        location=listing.get("Location") or None,
+        salary_hint=listing.get("Salary") or None,
+        description=listing.get("Description", ""),
+    )
+    rule_score = float(listing.get("Rule Score") or 0)
+    scored = ScoredListing(
+        listing=raw,
+        criteria={"total": CriterionScore(weight=1.0, raw_score=rule_score, weighted=rule_score, reason="")},
+        total_score=rule_score,
+    )
+    evaluation = LLMEvaluation(
+        fit_score=int(float(score_str)),
+        fit_summary=fit_summary,
+        strengths=[s.strip() for s in listing.get("Strengths", "").split(";") if s.strip()],
+        red_flags=[s.strip() for s in listing.get("Red Flags", "").split(";") if s.strip()],
+        recommendation=listing.get("Recommendation", "maybe"),
+    )
+
+    if not CV_PATH.exists() or not PROFILE_PATH.exists():
+        return None
+
+    cv_text = CV_PATH.read_text(encoding="utf-8")
+    profile_text = PROFILE_PATH.read_text(encoding="utf-8")
+    cost_config = _load_cost_config()
+    rep_cfg = cost_config.get("report_generation", {})
+    client = get_client(cost_config, stage="report_generation")
+
+    report = generate_detailed_report(
+        client,
+        scored,
+        evaluation,
+        {},
+        cv_text,
+        profile_text,
+        model=rep_cfg.get("model", "gpt-4o"),
+        max_tokens=int(rep_cfg.get("max_tokens", 1500)),
+    )
+    path = write_report_to_disk(report, REPORTS_DIR)
+    upsert_listings_csv(report_paths={raw.url: str(path)})
+    return path
+
+
+# ---------------------------------------------------------------------------
 # Listing lookup
 # ---------------------------------------------------------------------------
 
@@ -413,7 +483,9 @@ def _load_cost_config() -> dict:
 )
 @click.option("--open", "open_browser", is_flag=True, help="Open generated files in browser.")
 @click.option("--notes", default=None, help="Extra context appended to the CV before generation (e.g. skills relevant only to this role).")
-def apply_command(url, no_cover_letter, pdf, model, output_dir, open_browser, notes):
+@click.option("--track", is_flag=True, help="Record this application in the applications tracker.")
+@click.option("--no-report", is_flag=True, help="Skip generating a detailed fit report.")
+def apply_command(url, no_cover_letter, pdf, model, output_dir, open_browser, notes, track, no_report):
     """Generate a tailored CV and cover letter for a job listing.
 
     URL is optional — omit to pick interactively from listings.csv.
@@ -513,6 +585,27 @@ def apply_command(url, no_cover_letter, pdf, model, output_dir, open_browser, no
                 console.print(f"  [green]✓[/] Cover letter PDF → [bold]{cl_pdf}[/]")
             else:
                 console.print("  [yellow]Cover letter PDF export failed.[/]")
+
+    if track:
+        from commands.track import record_application
+        added = record_application(
+            url=listing.get("Url", url or ""),
+            company=company,
+            title=title,
+        )
+        if added:
+            console.print(f"  [green]✓[/] Recorded in applications tracker")
+        else:
+            console.print(f"  [dim]Already in applications tracker[/]")
+
+    if not no_report:
+        report_path = _generate_report_from_listing(listing)
+        if report_path:
+            console.print(f"  [green]✓[/] Report → [bold]{report_path}[/]")
+        elif listing.get("Score") or listing.get("Fit Summary"):
+            console.print("  [yellow]Report generation failed — run [bold]job evaluate <url>[/] to retry.[/]")
+        else:
+            console.print("  [dim]No evaluation data found — run [bold]job evaluate <url>[/] first to generate a report.[/]")
 
     if open_browser:
         if pdf and (cv_path.with_suffix(".pdf")).exists():
