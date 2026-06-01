@@ -70,11 +70,13 @@ def _generate_report_from_listing(listing: dict) -> Path | None:
         total_score=rule_score,
     )
     evaluation = LLMEvaluation(
+        listing_url=listing.get("Url", ""),
         fit_score=int(float(score_str)),
         fit_summary=fit_summary,
         strengths=[s.strip() for s in listing.get("Strengths", "").split(";") if s.strip()],
         red_flags=[s.strip() for s in listing.get("Red Flags", "").split(";") if s.strip()],
         recommendation=listing.get("Recommendation", "maybe"),
+        raw_response="",
     )
 
     if not CV_PATH.exists() or not PROFILE_PATH.exists():
