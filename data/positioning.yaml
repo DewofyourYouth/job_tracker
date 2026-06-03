@@ -32,6 +32,7 @@ guardrails:
   - "Languages: Hebrew is genuine professional fluency (C1) and can be stated plainly. Levantine/Shami Arabic is 'conversational' — never label it fluent, native, or a CEFR/B1 flex. Lead with the verifiable applied command: writes a daily Levantine publication (Daily Derja) and built a dialect-aware Arabic app (HAKI)."
   - "Surface the rabbi × engineer × polyglot identity only where it is a market asset — as a capability that explains range, never as the headline."
   - "Never invent experience, employers, titles, dates, or skills that are not in the CV. Reorder and reframe what is real; do not fabricate."
+  - "Do NOT claim customer-facing / client-facing experience or direct engagement with the government end-customers at Integrity Labs. Jacob built the generic systems; country-specific requirements reached the team via internal customer-support technicians. He can be framed as MOVING INTO customer-facing roles (FDE / Solutions) on aptitude + hard-environment credibility — never as having prior customer-facing years."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Pillars — the 3 differentiators + their canonical proof points.
@@ -56,12 +57,12 @@ pillars:
       - "Works across the broader AI stack (RAG, embeddings, pgvector) at the integration level."
     guardrail: "Frame AI as integration / shipping / reliability — NOT as retrieval or embeddings research. Do not claim deep RAG / vector-search expertise; do not invent ML-research depth."
 
-  customer_facing:
-    label: "Customer-facing technical ownership, no PM layer"
-    one_liner: "Owns the engineering↔customer interface directly — requirements to architecture to delivery — with no PM buffer."
+  technical_ownership:
+    label: "Autonomous technical ownership, no PM layer"
+    one_liner: "Leads a small engineering team through complex technical requirements end-to-end — architecture, technology choices, delivery — with no PM layer."
     proof_points:
-      - "Owned direct technical engagement with foreign-government clients: translated analyst requirements into architecture, ran technical reviews with customer security teams, steered quarterly releases with zero unplanned downtime."
-      - "Led a 4-engineer pod with no PM layer — technical strategy, delivery cadence, and hands-on code in the core path."
+      - "Technical lead of a 4-engineer pod with no PM layer: owned architecture, technology choices, task breakdown, and a quarterly delivery cadence with zero unplanned downtime — hands-on in the core path."
+      - "Translated country-specific requirements (relayed via internal customer-support technicians) into a single generic pipeline serving all 60+ air-gapped environments."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Archetype overrides. For a given job title, the FIRST/BEST matching entry
@@ -78,24 +79,24 @@ archetype_overrides:
     tier: 1
     match_titles: ["forward deployed", "forward-deployed", "field engineer", "deployment engineer", "deployed engineer"]
     headline: "Forward Deployed Engineer | Air-Gapped Infrastructure & AI Integration"
-    lead_pillar: customer_facing
-    support_pillars: [air_gapped, ai_shipped]
-    emphasis: "This role IS the intersection of all three pillars. Lead with direct customer-facing delivery in hard environments; use the air-gapped 60-country pipeline as the flagship proof; mention shipping LLM systems as a differentiator."
+    lead_pillar: air_gapped
+    support_pillars: [ai_shipped, technical_ownership]
+    emphasis: "Forward-deployed / customer-facing is a role Jacob is MOVING INTO, not prior experience — do NOT claim he was customer-facing at Integrity Labs. Lead with the air-gapped 60-country pipeline as flagship proof of thriving in hard, constrained environments; add shipping LLM/agentic systems as a differentiator; use the no-PM technical ownership as evidence he can own delivery autonomously."
 
   solutions_engineer:
     tier: 1
     match_titles: ["solutions engineer", "solutions architect", "customer engineer", "integration engineer", "implementation engineer", "implementation"]
     headline: "Solutions Engineer | B2G Technical Delivery & Platform Integration"
-    lead_pillar: customer_facing
-    support_pillars: [air_gapped, ai_shipped]
-    emphasis: "Lead with translating customer requirements into shipped architecture, no PM buffer. Air-gapped / 60-country scale is the credibility anchor."
+    lead_pillar: air_gapped
+    support_pillars: [technical_ownership, ai_shipped]
+    emphasis: "Lead with shipping into hard B2G / air-gapped environments (the 60-country pipeline) and autonomous no-PM delivery. Do NOT claim prior customer-facing / client engagement — frame customer-facing as a role Jacob is moving into. Air-gapped scale is the credibility anchor."
 
   platform_engineer:
     tier: 1
     match_titles: ["platform engineer", "developer platform", "devex", "developer experience", "internal tools", "infrastructure platform"]
     headline: "Senior Platform Engineer | Air-Gapped Kubernetes & GitOps"
     lead_pillar: air_gapped
-    support_pillars: [customer_facing, ai_shipped]
+    support_pillars: [technical_ownership, ai_shipped]
     emphasis: "Lead with owning and BUILDING the deployment platform end-to-end in constrained environments (not operating it). Strongest at security / fintech / regulated-infra companies — frame air-gapped + compliance as a feature, not a curiosity."
 
   backend_engineer_regulated:
@@ -103,7 +104,7 @@ archetype_overrides:
     match_titles: ["backend engineer", "senior backend", "backend developer", "software engineer", "full stack"]
     headline: "Senior Backend & Platform Engineer | Secure Distributed Systems"
     lead_pillar: air_gapped
-    support_pillars: [customer_facing, ai_shipped]
+    support_pillars: [technical_ownership, ai_shipped]
     emphasis: "Use for backend roles at security / fintech / regulated / infra companies where reliability matters. Lead with secure distributed systems + air-gapped scale. NOTE: for generic consumer/SaaS backend at non-regulated startups this is a weak, oversupplied fit — flag low-fit rather than forcing a generic application."
 
   ai_infrastructure_engineer:
@@ -111,15 +112,15 @@ archetype_overrides:
     match_titles: ["ai infrastructure", "ai platform", "applied ai", "llm engineer", "ai engineer", "agentic", "ml platform", "ml infrastructure"]
     headline: "AI / Platform Engineer | Ships LLM & Agentic Systems in Production"
     lead_pillar: ai_shipped
-    support_pillars: [air_gapped, customer_facing]
+    support_pillars: [air_gapped, technical_ownership]
     emphasis: "Lead with shipping and debugging real LLM/agentic systems, plus the rare angle: doing it in self-hosted / air-gapped environments. HONOR pillars.ai_shipped.guardrail — integration & shipping, never retrieval research. Stretch lane: strongest when the role is AI-integration / platform, not ML research."
 
   devrel_engineer:
     tier: 3
     match_titles: ["developer advocate", "devrel", "developer relations", "developer experience advocate", "technical writer"]
     headline: "Developer Advocate / DevRel | An Engineer Who Ships and Explains"
-    lead_pillar: customer_facing
-    support_pillars: [ai_shipped, air_gapped]
+    lead_pillar: ai_shipped
+    support_pillars: [technical_ownership, air_gapped]
     emphasis: "Lead with communication + teaching (the long-form writing at dewofyouryouth.com, public technical posts) backed by real shipping credibility. Secondary fit — only when the role genuinely values engineer-who-writes."
 
   # ── OPTIONAL: tech / team lead ───────────────────────────────────────────────
@@ -133,7 +134,7 @@ archetype_overrides:
   #   tier: 2
   #   match_titles: ["tech lead", "technical lead", "team lead", "engineering lead", "lead engineer", "staff engineer"]
   #   headline: "Engineering Tech Lead | Owns Architecture & Delivery, No PM Layer"
-  #   lead_pillar: customer_facing
+  #   lead_pillar: technical_ownership
   #   support_pillars: [air_gapped, ai_shipped]
   #   emphasis: "Lead with technical ownership of a pod with no PM buffer — architecture, delivery cadence, hands-on in the core path. Frame as tech lead (owned direction), never as people-manager and never hedged."
 
