@@ -16,6 +16,15 @@ from typing import TYPE_CHECKING, Optional
 
 import yaml
 
+from classify.positioning import (
+    ArchetypeBiasLadder,
+    archetype_bias,
+    bias_ladder_from_tuning,
+    match_archetype,
+    tier_display_score,
+    title_matches_any_archetype,
+)
+
 if TYPE_CHECKING:
     from classify.semantic import SemanticScorer
 
@@ -125,6 +134,10 @@ class ScoringConfig:
     tech_stack_ladder: TechStackLadder = field(default_factory=TechStackLadder)
     salary_adjustments: SalaryAdjustments = field(default_factory=SalaryAdjustments)
     semantic_scorer: Optional["SemanticScorer"] = None
+    # Positioning archetype config (data/positioning.yaml) + its bias ladder.
+    # Empty/default by default → every positioning feature is a no-op.
+    positioning: dict = field(default_factory=dict)
+    archetype_bias_ladder: ArchetypeBiasLadder = field(default_factory=ArchetypeBiasLadder)
 
 
 def load_criteria(path: Path = CRITERIA_PATH) -> dict:
@@ -190,7 +203,7 @@ def _int_setting(value, default: int, name: str) -> int:
         raise ValueError(f"{name} must be an integer, got {value!r}") from exc
 
 
-def config_from_criteria(criteria: dict, tuning: dict | None = None) -> ScoringConfig:
+def config_from_criteria(criteria: dict, tuning: dict | None = None, positioning: dict | None = None) -> ScoringConfig:
     """
     Build a ScoringConfig from generated criteria plus optional tuning overrides.
 
@@ -320,6 +333,8 @@ def config_from_criteria(criteria: dict, tuning: dict | None = None) -> ScoringC
                 "adjustments.salary.below_min_penalty",
             ),
         ),
+        positioning=positioning or {},
+        archetype_bias_ladder=bias_ladder_from_tuning(tuning),
     )
 
 
@@ -421,7 +436,18 @@ def passes_title_filter(
         else criteria.get("tolerances", {}).get("min_title_keyword_hits", 1)
     )
     hits = sum(1 for kw in positives if kw and _phrase_in(kw, title))
-    return hits >= min_hits
+    if hits >= min_hits:
+        return True
+
+    # Widen the gate with the richer positioning signal: a title matching a
+    # target archetype's match_titles passes even without a title_filter keyword.
+    # This only ADMITS more listings (never removes) — a better signal than raw
+    # keyword presence. No-op when positioning is absent.
+    pos = getattr(config, "positioning", None) if config is not None else None
+    if pos and title_matches_any_archetype(title, pos):
+        return True
+
+    return False
 
 
 def passes_hard_rules(
@@ -683,6 +709,21 @@ def score_listing(
                 loc.reason + " [overridden: strong role fit]",
             )
 
+    # Archetype positioning bias — a small, bounded, promotion-only re-rank nudge
+    # (see classify/positioning.py + scoring-tuning.yaml archetype_bias). No-op
+    # when positioning is absent: nothing is added and the score is unchanged.
+    positioning = getattr(config, "positioning", None)
+    if positioning:
+        arch = match_archetype(listing.title, positioning)
+        bias, bias_reason = archetype_bias(arch, config.archetype_bias_ladder)
+        if arch is not None or bias != 0.0:
+            criterion_scores["archetype"] = CriterionScore(
+                weight=1.0,                       # bias is pre-scaled; weighted == bias
+                raw_score=tier_display_score(arch),
+                weighted=bias,
+                reason=bias_reason,
+            )
+
     total = sum(c.weighted for c in criterion_scores.values())
 
     # Salary soft-penalty (only when hint is parseable and currency matches)
@@ -696,6 +737,7 @@ def score_listing(
         if penalty:
             total *= (1.0 - penalty)
 
+    total = max(0.0, min(1.0, total))
     return ScoredListing(listing, criterion_scores, round(total, 4))
 
 

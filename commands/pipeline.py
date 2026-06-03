@@ -32,6 +32,7 @@ from classify.location_filter import (
     format_location_filter_stats,
 )
 from classify.llm import DEFAULT_LLM_CONCURRENCY, DEFAULT_LLM_MAX_TOKENS, LLMEvaluation, batch_evaluate
+from classify.positioning import load_positioning
 from classify.rules import (
     DEFAULT_TUNING_PATH,
     RawListing,
@@ -152,6 +153,7 @@ class ReportsPipeline:
         self.criteria: dict = {}
         self.tuning: dict = {}
         self.config: ScoringConfig = ScoringConfig()
+        self.positioning: dict = {}
         self.portals_config: dict = {}
         self.raw_listings: list[RawListing] = []
         self.candidates: list[RawListing] = []   # survives hard filter
@@ -234,7 +236,8 @@ class ReportsPipeline:
             tuning_path,
             required=tuning_path != DEFAULT_TUNING_PATH,
         )
-        self.config = config_from_criteria(self.criteria, self.tuning)
+        self.positioning = load_positioning()
+        self.config = config_from_criteria(self.criteria, self.tuning, positioning=self.positioning)
         if top_n_for_llm is not None:
             self.config.tolerances.top_n_for_llm = top_n_for_llm
         self._criteria_hash = criteria_hash(self.criteria)

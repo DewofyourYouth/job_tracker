@@ -17,6 +17,7 @@ from rich.console import Console
 from rich.table import Table
 
 from prompts.render import render_prompt
+from classify.positioning import fallback_match, load_positioning, match_archetype
 
 console = Console()
 
@@ -177,6 +178,49 @@ def _pick_listing_interactively() -> dict | None:
 # LLM content generation
 # ---------------------------------------------------------------------------
 
+def _positioning_context(positioning: dict, arch) -> dict:
+    """Build apply_user.md template vars from positioning + the matched archetype.
+
+    Returns safe empty defaults when positioning is absent so the Jinja template
+    (StrictUndefined) always has every variable it may reference.
+    """
+    pillars = (positioning or {}).get("pillars", {}) or {}
+
+    def label(key: str) -> str:
+        return (pillars.get(key, {}) or {}).get("label", key or "")
+
+    def oneliner(key: str) -> str:
+        return (pillars.get(key, {}) or {}).get("one_liner", "")
+
+    def proofs(key: str) -> list:
+        return list((pillars.get(key, {}) or {}).get("proof_points", []) or [])
+
+    guardrails = list((positioning or {}).get("guardrails", []) or [])
+    if not positioning or arch is None:
+        return {
+            "positioning": bool(positioning),
+            "archetype_headline": "",
+            "archetype_key": "",
+            "lead_pillar_label": "",
+            "lead_pillar_oneliner": "",
+            "support_pillars_labels": [],
+            "emphasis": "",
+            "lead_proof_points": [],
+            "guardrails": guardrails,
+        }
+    return {
+        "positioning": True,
+        "archetype_headline": arch.headline,
+        "archetype_key": arch.key,
+        "lead_pillar_label": label(arch.lead_pillar),
+        "lead_pillar_oneliner": oneliner(arch.lead_pillar),
+        "support_pillars_labels": [label(k) for k in arch.support_pillars],
+        "emphasis": arch.emphasis or "",
+        "lead_proof_points": proofs(arch.lead_pillar),
+        "guardrails": guardrails,
+    }
+
+
 def generate_application_content(
     client,
     listing: dict,
@@ -188,8 +232,14 @@ def generate_application_content(
     include_cover_letter: bool = True,
 ) -> dict:
     description = listing.get("Description", "") or "not available"
-    if len(description) > 3000:
-        description = description[:3000].strip() + "..."
+    if len(description) > 6000:
+        description = description[:6000].strip() + "..."
+
+    positioning = load_positioning()
+    arch = match_archetype(listing.get("Job Title", "") or "", positioning) if positioning else None
+    if positioning and arch is None:
+        arch = fallback_match(positioning)
+    pos_ctx = _positioning_context(positioning, arch)
 
     user_msg = render_prompt(
         "apply_user.md",
@@ -204,6 +254,7 @@ def generate_application_content(
         cv_text=cv_text,
         profile_text=profile_text,
         include_cover_letter=include_cover_letter,
+        **pos_ctx,
     )
 
     raw = client.chat(

@@ -21,6 +21,13 @@ The profile contains a `narrative` section with `superpowers` and `proof_points`
 - Write like a senior engineer, not a recruiter. No buzzwords, no hype, no "passionate about."
 - Leadership claims must be grounded in the CV. If the CV describes a tech-lead role (owned architecture, set direction, no people-management), frame it as "tech lead" — not "manager" and not hedged language like "sort of led."
 
+## Positioning directive
+
+The user message may include a "Positioning directive" derived from the candidate's positioning config. When present, treat it as authoritative for this application:
+- Use its CV subtitle verbatim unless it is clearly wrong for the listing; never fall back to a bare "Senior Backend Engineer".
+- Lead the summary and the strongest experience bullets with the named lead pillar; weave in the support pillars after.
+- Treat its guardrails as hard constraints that prevent over-claiming (e.g. AI as integration/shipping, not retrieval research; Arabic as conversational, not fluent; identity as a capability, not a headline). Never violate a guardrail even if it would make the CV look stronger.
+
 ## Summary guidance
 
 2–3 sentences. Lead with the candidate's strongest differentiator for this specific role, not a generic description. The second sentence should name a concrete proof point. The third should state the fit for this particular role type.

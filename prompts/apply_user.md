@@ -34,6 +34,25 @@
 
 ---
 
+{% if positioning %}
+## Positioning directive (follow precisely)
+
+This candidate's positioning is encoded in data/positioning.yaml. For THIS role:
+
+- CV subtitle: use exactly — "{{ archetype_headline }}" — unless it is clearly wrong for the listing, in which case adapt minimally. Never output a bare "Senior Backend Engineer".
+- Lead pillar: {{ lead_pillar_label }}{% if lead_pillar_oneliner %} — {{ lead_pillar_oneliner }}{% endif %}
+  Lead the professional summary and the strongest experience bullet with this.
+{% if support_pillars_labels %}- Support pillars (weave in after the lead): {{ support_pillars_labels | join('; ') }}
+{% endif %}{% if emphasis %}- Role emphasis: {{ emphasis }}
+{% endif %}{% if lead_proof_points %}- Canonical proof points to draw from (use the real ones; do not embellish):
+{% for p in lead_proof_points %}  - {{ p }}
+{% endfor %}{% endif %}
+### Non-negotiable guardrails
+{% for g in guardrails %}- {{ g }}
+{% endfor %}
+---
+
+{% endif %}
 ## Instructions
 
 Before writing anything, read the candidate profile's `narrative.superpowers` and `narrative.proof_points`. These are the candidate's pre-ranked differentiators. Lead with whichever of them is most relevant to the target role above.

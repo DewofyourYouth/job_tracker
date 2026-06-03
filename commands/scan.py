@@ -39,6 +39,7 @@ from classify.location_filter import (
     format_location_filter_stats,
 )
 from classify.llm import DEFAULT_LLM_CONCURRENCY, LLMEvaluation, batch_evaluate
+from classify.positioning import load_positioning
 from classify.rules import (
     DEFAULT_TUNING_PATH,
     RawListing,
@@ -539,7 +540,8 @@ def scan_command(
     tuning_file = Path(tuning_path)
     tuning_required = tuning_file != DEFAULT_TUNING_PATH
     tuning = load_tuning_config(tuning_file, required=tuning_required)
-    config = config_from_criteria(criteria, tuning)
+    positioning = load_positioning()
+    config = config_from_criteria(criteria, tuning, positioning=positioning)
 
     if weight_role_fit is not None:
         config.weights.role_fit = weight_role_fit

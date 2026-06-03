@@ -33,6 +33,7 @@ The resolution difference is intentional:
 - `data/listings.csv` — pipeline-discovered listings (auto-generated, large)
 - `data/cv.md` — full CV text (private)
 - `data/profile.yaml` — structured candidate profile (private)
+- `data/positioning.yaml` — role archetypes → fit tier (scoring bias) + CV framing (headline, lead pillar, guardrails); read by `classify/positioning.py`. Optional — absent = feature off.
 - `output/reports/` — per-listing markdown fit reports + analysis reports
 - `output/applications/` — generated CV and cover letter files
 
@@ -43,3 +44,4 @@ The resolution difference is intentional:
 - Report files are named `<company>-<title>-<url-hash>.md`; analysis reports are `analysis-YYYY-MM-DD.md`
 - All LLM calls go through `providers/` (OpenAI default, Anthropic optional); model/token config in `data/api-cost-config.yaml`
 - ATS-aware fetching: Greenhouse, Lever, Ashby, Workable, Workday — add new ATS fetchers to `commands/evaluate.py`
+- Positioning: `data/positioning.yaml` is the single source for role archetypes. Tier → a soft, **promotion-only** rule-score bias (strength tuned in `data/scoring-tuning.yaml` → `archetype_bias`) plus CV framing in `job apply`. Validate against history with `python scripts/validate_positioning.py`.

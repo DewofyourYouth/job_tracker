@@ -59,3 +59,20 @@ score_ladders:
 adjustments:
   salary:
     below_min_penalty: 0.15  # fraction subtracted from total score when stated salary is below your tolerated minimum
+
+# ---------------------------------------------------------------------------
+# Archetype positioning bias (reads data/positioning.yaml).
+# A soft, bounded, PROMOTION-ONLY re-rank nudge: it lifts roles that match a
+# target archetype (tier 1/2) so they rank above generic ones, WITHOUT hard-
+# filtering anything. tier_3 / no_match default to 0.0, so nothing you actually
+# pursue is ever pushed down. The final score is clamped to [0, 1].
+#
+# The tiers themselves are HYPOTHESES defined in data/positioning.yaml — retune
+# them there. Tune the STRENGTH here. Set enabled: false to disable entirely.
+archetype_bias:
+  enabled: true
+  tier_1: 0.15    # forward-deployed / solutions / platform — lean in
+  tier_2: 0.06    # regulated backend / AI-integration — strong, mild lift
+  tier_3: 0.00    # weak / optional fits — neutral (set negative to penalize)
+  no_match: 0.00  # title matches no archetype — neutral (never penalized)
+  cap: 0.20       # max absolute bias applied before the [0, 1] score clamp

@@ -56,4 +56,8 @@ semantic:
 apply_generation:
   provider: anthropic
   model: claude-opus-4-8
-  max_tokens: 3500
+  # Full tailored CV JSON (summary + competencies + multi-role bullets + cover
+  # letter) routinely exceeds 3500 output tokens — that truncated the JSON and
+  # caused empty / parse-failed generations. Opus handles a larger budget fine,
+  # and this is one call per application.
+  max_tokens: 8000

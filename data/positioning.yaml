@@ -1,0 +1,145 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# POSITIONING CONFIG  (data/positioning.yaml)
+#
+# A standalone, referenced config — NOT pasted into profile.yaml. Two consumers
+# read this file via classify/positioning.py:
+#
+#   1. Scoring / sourcing funnel (classify/rules.py)
+#        uses `archetype_overrides[*].tier` + `match_titles`
+#        → a soft, bounded re-rank bias + a widened title gate.
+#        The NUMERIC bias lives in data/scoring-tuning.yaml (archetype_bias:),
+#        so you can retune strength without editing this file.
+#
+#   2. Apply / CV generation (commands/apply.py → prompts/apply_user.md)
+#        uses `headline`, `lead_pillar`, `support_pillars`, `emphasis`,
+#        the matched pillars' proof_points, and the top-level `guardrails`.
+#        → how to frame the CV subtitle, summary, and bullets for the role.
+#
+# This file is fully OPTIONAL. If it is absent, the scorer behaves exactly as
+# before and the apply step falls back to the profile narrative. Nothing here
+# hard-filters a listing — tiers only NUDGE ranking (promotion-only by default).
+#
+# The tier assignments below are HYPOTHESES, not verdicts. Tune freely:
+#   - to change how hard a tier is favored → edit scoring-tuning.yaml
+#   - to re-tier a role / add titles        → edit archetype_overrides here
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Global framing guardrails — injected into the apply/CV prompt as hard rules.
+# These are hallucination + over-claim guards. Keep them honest and defensible
+# at interview time, not just by start date.
+guardrails:
+  - "Frame AI as integration / shipping / reliability — NOT retrieval or embeddings research. Do NOT claim deep RAG / vector-search expertise or invent ML-research depth. The defensible AI work is shipping & debugging LLM/agentic systems (Personal Ops bot, HAKI TTS)."
+  - "Languages: Hebrew is genuine professional fluency (C1) and can be stated plainly. Levantine/Shami Arabic is 'conversational' — never label it fluent, native, or a CEFR/B1 flex. Lead with the verifiable applied command: writes a daily Levantine publication (Daily Derja) and built a dialect-aware Arabic app (HAKI)."
+  - "Surface the rabbi × engineer × polyglot identity only where it is a market asset — as a capability that explains range, never as the headline."
+  - "Never invent experience, employers, titles, dates, or skills that are not in the CV. Reorder and reframe what is real; do not fabricate."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pillars — the 3 differentiators + their canonical proof points.
+# The apply step pulls the lead/support pillars' proof_points as the bullets to
+# draw from for a given role.
+# ─────────────────────────────────────────────────────────────────────────────
+pillars:
+  air_gapped:
+    label: "Air-gapped / sovereign / regulated deployment"
+    one_liner: "Ships and owns production systems where a bad deploy can't be hotfixed over the internet."
+    proof_points:
+      - "Replaced a physical-courier government update process with a fully automated remote pipeline (React → Python/Go → Kubernetes/ArgoCD/GitOps) running inside air-gapped sovereign networks across 60+ countries — update time cut from weeks to under an hour."
+      - "Designed and operated the deployment architecture across 60+ heterogeneous air-gapped customer environments (self-hosted K8s, Consul KV, PostgreSQL/MongoDB, Redis) — roll forward and back with no external dependencies."
+      - "Built HIPAA-compliant Docker / CI-CD deployment systems for regulated healthcare infrastructure (DatAlign)."
+
+  ai_shipped:
+    label: "Builds & ships LLM / agentic systems (integration layer)"
+    one_liner: "Builds, ships, and debugs LLM-driven and agentic systems end-to-end — the integration and reliability work, not retrieval research."
+    proof_points:
+      - "Built a Telegram voice→LLM agentic workflow (voice capture → Whisper transcription → weekly LLM digest → daily planning proposals) and iterated on its reliability in public — context-assembly debugging, guarding against over-confident model output."
+      - "Built HAKI, a dialect-aware Arabic learning app, including a generated-audio TTS pipeline — end-to-end, with real users."
+      - "Works across the broader AI stack (RAG, embeddings, pgvector) at the integration level."
+    guardrail: "Frame AI as integration / shipping / reliability — NOT as retrieval or embeddings research. Do not claim deep RAG / vector-search expertise; do not invent ML-research depth."
+
+  customer_facing:
+    label: "Customer-facing technical ownership, no PM layer"
+    one_liner: "Owns the engineering↔customer interface directly — requirements to architecture to delivery — with no PM buffer."
+    proof_points:
+      - "Owned direct technical engagement with foreign-government clients: translated analyst requirements into architecture, ran technical reviews with customer security teams, steered quarterly releases with zero unplanned downtime."
+      - "Led a 4-engineer pod with no PM layer — technical strategy, delivery cadence, and hands-on code in the core path."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Archetype overrides. For a given job title, the FIRST/BEST matching entry
+# (lowest tier wins, then longest matched phrase) supplies:
+#   - `headline`        → CV subtitle (used verbatim unless clearly wrong)
+#   - `lead_pillar`     → which pillar leads the summary + bullets
+#   - `support_pillars` → woven in after the lead
+#   - `emphasis`        → freeform steering for the apply model
+#   - `tier`            → fit signal for the scorer (1 = lean in, 3 = weak)
+# ─────────────────────────────────────────────────────────────────────────────
+archetype_overrides:
+
+  forward_deployed_engineer:
+    tier: 1
+    match_titles: ["forward deployed", "forward-deployed", "field engineer", "deployment engineer", "deployed engineer"]
+    headline: "Forward Deployed Engineer | Air-Gapped Infrastructure & AI Integration"
+    lead_pillar: customer_facing
+    support_pillars: [air_gapped, ai_shipped]
+    emphasis: "This role IS the intersection of all three pillars. Lead with direct customer-facing delivery in hard environments; use the air-gapped 60-country pipeline as the flagship proof; mention shipping LLM systems as a differentiator."
+
+  solutions_engineer:
+    tier: 1
+    match_titles: ["solutions engineer", "solutions architect", "customer engineer", "integration engineer", "implementation engineer", "implementation"]
+    headline: "Solutions Engineer | B2G Technical Delivery & Platform Integration"
+    lead_pillar: customer_facing
+    support_pillars: [air_gapped, ai_shipped]
+    emphasis: "Lead with translating customer requirements into shipped architecture, no PM buffer. Air-gapped / 60-country scale is the credibility anchor."
+
+  platform_engineer:
+    tier: 1
+    match_titles: ["platform engineer", "developer platform", "devex", "developer experience", "internal tools", "infrastructure platform"]
+    headline: "Senior Platform Engineer | Air-Gapped Kubernetes & GitOps"
+    lead_pillar: air_gapped
+    support_pillars: [customer_facing, ai_shipped]
+    emphasis: "Lead with owning and BUILDING the deployment platform end-to-end in constrained environments (not operating it). Strongest at security / fintech / regulated-infra companies — frame air-gapped + compliance as a feature, not a curiosity."
+
+  backend_engineer_regulated:
+    tier: 2
+    match_titles: ["backend engineer", "senior backend", "backend developer", "software engineer", "full stack"]
+    headline: "Senior Backend & Platform Engineer | Secure Distributed Systems"
+    lead_pillar: air_gapped
+    support_pillars: [customer_facing, ai_shipped]
+    emphasis: "Use for backend roles at security / fintech / regulated / infra companies where reliability matters. Lead with secure distributed systems + air-gapped scale. NOTE: for generic consumer/SaaS backend at non-regulated startups this is a weak, oversupplied fit — flag low-fit rather than forcing a generic application."
+
+  ai_infrastructure_engineer:
+    tier: 2
+    match_titles: ["ai infrastructure", "ai platform", "applied ai", "llm engineer", "ai engineer", "agentic", "ml platform", "ml infrastructure"]
+    headline: "AI / Platform Engineer | Ships LLM & Agentic Systems in Production"
+    lead_pillar: ai_shipped
+    support_pillars: [air_gapped, customer_facing]
+    emphasis: "Lead with shipping and debugging real LLM/agentic systems, plus the rare angle: doing it in self-hosted / air-gapped environments. HONOR pillars.ai_shipped.guardrail — integration & shipping, never retrieval research. Stretch lane: strongest when the role is AI-integration / platform, not ML research."
+
+  devrel_engineer:
+    tier: 3
+    match_titles: ["developer advocate", "devrel", "developer relations", "developer experience advocate", "technical writer"]
+    headline: "Developer Advocate / DevRel | An Engineer Who Ships and Explains"
+    lead_pillar: customer_facing
+    support_pillars: [ai_shipped, air_gapped]
+    emphasis: "Lead with communication + teaching (the long-form writing at dewofyouryouth.com, public technical posts) backed by real shipping credibility. Secondary fit — only when the role genuinely values engineer-who-writes."
+
+  # ── OPTIONAL: tech / team lead ───────────────────────────────────────────────
+  # Validation against applications.csv found several Tech Lead / Team Lead roles
+  # you actually pursued (Traild, Swap, HeartStamp, Yotpo Eng Tech Lead, etc.)
+  # that match NO archetype above → they get the no-match (neutral) bias and the
+  # default headline. They are NOT suppressed, but they also aren't favored. If
+  # you want lead roles to rank with intent, uncomment and tune this block:
+  #
+  # tech_lead:
+  #   tier: 2
+  #   match_titles: ["tech lead", "technical lead", "team lead", "engineering lead", "lead engineer", "staff engineer"]
+  #   headline: "Engineering Tech Lead | Owns Architecture & Delivery, No PM Layer"
+  #   lead_pillar: customer_facing
+  #   support_pillars: [air_gapped, ai_shipped]
+  #   emphasis: "Lead with technical ownership of a pod with no PM buffer — architecture, delivery cadence, hands-on in the core path. Frame as tech lead (owned direction), never as people-manager and never hedged."
+
+# Fallback so the apply model NEVER regresses to a bare "Senior Backend Engineer"
+# subtitle when no archetype matches.
+default_when_no_match:
+  headline: "Senior Platform & Backend Engineer | Air-Gapped Systems & AI Integration"
+  lead_pillar: air_gapped
+  note: "If no archetype matches, use this headline and lead with the air-gapped pillar. Never output a bare 'Senior Backend Engineer' subtitle."
