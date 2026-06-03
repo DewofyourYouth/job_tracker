@@ -20,6 +20,8 @@ dependencies = [
 
 [project.optional-dependencies]
 anthropic = ["anthropic>=0.40"]
+# Telegram front-end (bot.py). Optional so the pipeline image stays lean.
+bot = ["python-telegram-bot==22.7"]
 
 [project.scripts]
 job = "entrypoint:cli"
