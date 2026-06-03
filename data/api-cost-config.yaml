@@ -17,7 +17,7 @@ provider: openai
 # ├─────────────────────┼────────────────────────────────┼─────────────────────────────────┤
 # │ Fast / cheap        │ gpt-4.1-nano                   │ claude-haiku-4-5-20251001        │
 # │ Balanced            │ gpt-4.1-mini                   │ claude-sonnet-4-6               │
-# │ Best quality        │ gpt-4.1                        │ claude-opus-4-7                 │
+# │ Best quality        │ gpt-4.1                        │ claude-opus-4-8                 │
 # └─────────────────────┴────────────────────────────────┴─────────────────────────────────┘
 
 # Stage 2 — generate scoring-criteria.yaml from your CV + profile.
@@ -51,7 +51,9 @@ semantic:
 
 # apply — generates tailored CV + cover letter HTML for one listing.
 # One call per run; higher token budget needed for full structured CV output.
-# Anthropic equivalent: claude-sonnet-4-6
+# Uses the frontier Opus model for the most tailored, least generic output.
+# Requires ANTHROPIC_API_KEY (provider override below).
 apply_generation:
-  model: gpt-4.1-mini
+  provider: anthropic
+  model: claude-opus-4-8
   max_tokens: 3500
