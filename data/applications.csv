@@ -14,10 +14,34 @@ Sensi.AI,Senior Platform Engineer,,2026-05-28,applied,,LinkedIn
 Sleek,Senior Backend Developer,,2026-03-20,applied,never heard back so I'm assuming nothing is happening,LinkedIn
 Sett,Senior Infrastructure Engineer,,2026-04-14,rejected,had three interviews and then they said no,
 Paragon,Infrastructure Automation Engineer,,2026-03-15,rejected,had two interviews and they said no,
-Nebius,Data Center IT Infrastructure Engineer,https://careers.nebius.com/?gh_jid=4784195101&gh_src=4r54jpl2teu,2026-05-26,applied,,
+Nebius,Data Center IT Infrastructure Engineer,https://careers.nebius.com/?gh_jid=4784195101&gh_src=4r54jpl2teu,2026-05-26,applied,Beit Shemesh based; Historical duplicate: Nebius — Center IT Infrastructure Engineer; Applied Date: 2026-05-26; Source: Direct,
 Nebius,DC Infrastructure Engineer,https://careers.nebius.com/?gh_jid=4559736101,2026-05-26,applied,Beit Shemesh based,Direct
-Nebius,Senior SRE Engineer,https://careers.nebius.com/?gh_jid=4376374101&gh_src=284k0bb2teu,,applied,,Direct
-Snyk,Senior Software Engineer,https://snyk.wd103.myworkdayjobs.com/External/job/Israel---Tel-Aviv-Office/Senior-Software-Engineer_JR100584?source=LinkedIn_Sponsored,2026-05-29,applied,,LinkedIn
+Nebius,Senior SRE Engineer,https://careers.nebius.com/?gh_jid=4376374101&gh_src=284k0bb2teu,2026-05-26,rejected,"Remote; Historical duplicate: Nebius — Senior SRE; Applied Date: 2026-05-26; Source: Direct
+
+[Google Sheets Tracker row 15; reconciled 2026-10-17]
+Company: Nebius
+Role: Senior Site Reliability Engineer (SRE)
+Type: full-time
+Fit score / fit note: Hard skip category in future: pure SRE
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: rejected / hard-skip similar SRE
+Date found: 2026-05-26
+Last action date: 2026-06-15
+Notes / red flags: Applied May 26; rejection/closeout Jun 15. Also confirms pure SRE should stay hard-skip.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A15:M15",Direct
+Snyk,Senior Software Engineer,https://snyk.wd103.myworkdayjobs.com/External/job/Israel---Tel-Aviv-Office/Senior-Software-Engineer_JR100584?source=LinkedIn_Sponsored,2026-05-29,applied,"[Google Sheets Tracker row 30; reconciled 2026-10-17]
+Company: Snyk
+Role: Senior Software Engineer
+Type: full-time
+Fit score / fit note: Security/devtools company; exact team not captured
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: applied / no update found
+Date found: 2026-05-29
+Last action date: 2026-05-29
+Notes / red flags: Application confirmation May 29; no later status found in searched Gmail scope.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A30:M30",LinkedIn
 (Discreet),Team Lead,https://recruitcrm.io/apply/17780558812280078164mBj,2026-05-27,applied,,RecruitCRM
 SentinelOne,Senior Platform Engineer - Developer Platform DevEx,https://www.sentinelone.com/jobs/?gh_jid=7697659003&gh_src=c61082833us,2026-05-20,applied,,
 Sentra,Senior Full Stack Engineer,https://www.comeet.com/jobs/sentra/87.00B/senior-full-stack-engineer/D3.965,2026-05-18,applied,,
@@ -29,16 +53,802 @@ Dreeze,Full Stack Engineer,,2026-05-18,rejected,,Boris
 Fiverr,Senior Backend Software Engineer,,2026-05-18,applied,,Boris
 McKinsey/Iguazio,Unknown,,2026-05-18,applied,,Boris
 Trullion,Backend Engineer (AI Team),,2026-05-14,rejected,,LinkedIn
-Nebius,Senior SRE,https://careers.nebius.com/?gh_jid=4376374101&gh_src=284k0bb2teu,2026-05-26,applied,Remote,Direct
-Nebius,Center IT Infrastructure Engineer,https://careers.nebius.com/?gh_jid=4784195101&gh_src=4r54jpl2teu,2026-05-26,applied,Beit Shemesh based,Direct
 Rhino Federated Computing,Senior Backend Engineer,,2026-03-22,rejected,5 interviews,
 Navina,Senior Backend Engineer,www.navina.ai,2026-05-31,rejected,Rejection email received from Navina's hiring team,
-PlanetScale,Solutions Engineer,https://job-boards.greenhouse.io/planetscale/jobs/4052805009,2026-06-01,applied,,
+PlanetScale,Solutions Engineer,https://job-boards.greenhouse.io/planetscale/jobs/4052805009,2026-06-01,applied,"[Google Sheets Tracker row 28; reconciled 2026-10-17]
+Company: PlanetScale
+Role: Unspecified role(s)
+Type: full-time
+Fit score / fit note: Infra/database company, but global remote competitive
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: applied / no update found
+Date found: 2026-05-08
+Last action date: 2026-06-01
+Notes / red flags: Application confirmations May 8 and Jun 1; no later status found in searched Gmail scope.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A28:M28",
 Confidential (via Janglo),Senior Software Engineer (IAM),https://www.janglo.net/item/8xcPhj5hqec,2026-06-01,applied,,
-Swap,Engineering Team Lead,https://jobs.ashbyhq.com/swap/34cde21b-937f-414e-b419-356eda722338,2026-06-02,applied,,
-Chalk,Forward Deployed Engineer @ Chalk,https://jobs.ashbyhq.com/chalk/e1678b56-8dc7-4955-a576-9450bd568a0c,2026-06-03,applied,,
-Runway,"Member of Technical Staff, Backend Engineer, API",https://jobs.ashbyhq.com/runway-ml/8489a08a-f0cf-4418-968c-c7c803d538bc,2026-06-03,applied,,
-GitLab,"Senior Backend Engineer (Ruby on Rails), Plan: Knowledge",https://job-boards.greenhouse.io/gitlab/jobs/8455304002/,2026-06-03,applied,Remote,
-Armis,Senior Software Engineer,https://job-boards.greenhouse.io/armissecurity/jobs/5994462004/,2026-06-03,applied,Tel Aviv,
-Cato Networks,Senior Software Engineer,https://www.catonetworks.com/careers/careers-post/4720026101/,2026-06-03,applied,Tel Aviv,
-Island,Senior Platform Engineer (DevEx / DevOps),https://www.island.io/positions/position-EF_D3B,2026-06-03,applied,Tel Aviv,
+Swap,Engineering Team Lead,https://jobs.ashbyhq.com/swap/34cde21b-937f-414e-b419-356eda722338,2026-06-02,applied,"[Google Sheets Tracker row 27; reconciled 2026-10-17]
+Company: Swap
+Role: Unspecified role
+Type: full-time
+Fit score / fit note: Likely fintech/ecommerce infra but exact role not captured
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: applied / no update found
+Date found: 2026-06-02
+Last action date: 2026-06-02
+Notes / red flags: Application confirmation Jun 2; no later status found in searched Gmail scope.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A27:M27",
+Chalk,Forward Deployed Engineer @ Chalk,https://jobs.ashbyhq.com/chalk/e1678b56-8dc7-4955-a576-9450bd568a0c,2026-06-03,applied,"[Google Sheets Tracker row 26; reconciled 2026-10-17]
+Company: Chalk
+Role: Unspecified role
+Type: full-time
+Fit score / fit note: Global AI/data infra; weak-to-medium fit without role details
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: applied / no update found
+Date found: 2026-06-03
+Last action date: 2026-06-03
+Notes / red flags: Application confirmation Jun 3; no later status found in searched Gmail scope.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A26:M26",
+Runway,"Member of Technical Staff, Backend Engineer, API",https://jobs.ashbyhq.com/runway-ml/8489a08a-f0cf-4418-968c-c7c803d538bc,2026-06-03,rejected,"[Google Sheets Tracker row 14; reconciled 2026-10-17]
+Company: Runway
+Role: Unspecified role
+Type: full-time
+Fit score / fit note: Weak fit/competitive global AI company
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: rejected
+Date found: 2026-06-03
+Last action date: 2026-06-22
+Notes / red flags: Application received Jun 3; rejection Jun 22: moved forward with other candidates.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A14:M14",
+GitLab,"Senior Backend Engineer (Ruby on Rails), Plan: Knowledge",https://job-boards.greenhouse.io/gitlab/jobs/8455304002/,2026-06-03,applied,"Remote
+
+[Google Sheets Tracker row 17; reconciled 2026-10-17]
+Company: GitLab
+Role: Senior Backend Engineer (Ruby on Rails)
+Type: full-time
+Fit score / fit note: Global remote and Ruby-heavy; weak-to-medium fit
+Location / remote eligibility: Remote/global
+Source: Gmail sweep
+Status: applied / no update found
+Date found: 2026-06-03
+Last action date: 2026-06-03
+Notes / red flags: Application confirmation Jun 3; no later status found in searched Gmail scope.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A17:M17",
+Armis,Senior Software Engineer,https://job-boards.greenhouse.io/armissecurity/jobs/5994462004/,2026-06-03,applied,"Tel Aviv
+
+[Google Sheets Tracker row 10; reconciled 2026-10-17]
+Company: Armis Security
+Role: Senior Software Engineer
+Type: full-time
+Fit score / fit note: 8.4/10 - Tel Aviv security platform, Python, networking protocols/equipment, enterprise scale infrastructure
+Location / remote eligibility: Tel Aviv-Yafo, Israel
+Direct apply URL: https://job-boards.greenhouse.io/armissecurity/jobs/5810362004
+Source: Greenhouse / Armis Security
+Status: applied / waiting
+Date found: 2026-06-03
+Last action date: 2026-06-03
+Notes / red flags: Email sweep: application received by Armis Jun 3 for Senior Software Engineer. No rejection found in searched Gmail scope.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A10:M10",
+Cato Networks,Senior Software Engineer,https://www.catonetworks.com/careers/careers-post/4720026101/,2026-06-03,rejected,"Tel Aviv
+
+[Google Sheets Tracker row 12; reconciled 2026-10-17]
+Company: Cato Networks
+Role: Senior Software Engineer - Applicative Infra team
+Type: full-time
+Fit score / fit note: Local Israeli security/networking company; rejected, so do not resurface same team
+Location / remote eligibility: Israel
+Source: Gmail sweep
+Status: rejected / do not resurface same role
+Date found: 2026-06-03
+Last action date: 2026-06-21
+Notes / red flags: Applied Jun 3; rejected Jun 21: no match with specific needs for Applicative Infra team.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A12:M12",
+Island,Senior Platform Engineer (DevEx / DevOps),https://www.island.io/positions/position-EF_D3B,2026-06-03,rejected,"Tel Aviv
+
+[Google Sheets Tracker row 25; reconciled 2026-10-17]
+Company: Island
+Role: Senior Platform Engineer (DevEx / DevOps)
+Type: full-time
+Fit score / fit note: Israel/security browser likely adjacent; exact role not captured
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: rejected
+Date found: 2026-06-03
+Last action date: 2026-06-30
+Notes / red flags: Rejected by Island on 2026-06-30. Standard rejection email for Senior Platform Engineer (DevEx / DevOps); no individualized feedback.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A25:M25",
+Fireblocks,"Senior Developer, Yield team",,,rejected,"[Google Sheets Tracker row 2; reconciled 2026-10-17]
+Company: Fireblocks
+Role: Senior Developer, Yield team
+Type: full-time
+Fit score / fit note: Known active item
+Location / remote eligibility: Israel / eligibility known from active process
+Source: User-provided active pipeline item
+Status: rejected / closed
+Date found: 2026-06-03
+Last action date: 2026-06-23
+Notes / red flags: Rejected via Greenhouse email Jun 23, 2026: generic 'moving forward with other applicants' wording. User-reported feedback: prior-job architecture explanation was not clear enough; system design reached the answers but was too roundabout / did not go straight there. Process included HR/HM phone Jun 10 and design/architecture interviews Jun 16 and Jun 18.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A2:M2",User-provided active pipeline item
+Reef Technologies,Senior Python Backend Engineer,https://careers.reef.pl/?utm_source=hackernews,,applied,"[Google Sheets Tracker row 4; reconciled 2026-10-17]
+Company: Reef Technologies
+Role: Senior Python Backend Engineer
+Type: B2B contract
+Fit score / fit note: 8.3/10 - Python backend, hard distributed/container-runner problems, flexible 30h+ engagement
+Location / remote eligibility: Remote EMEA/APAC; B2B contract
+Direct apply URL: https://careers.reef.pl/?utm_source=hackernews
+Source: Hacker News Who Is Hiring June 2026
+Status: action required - coding test
+Date found: 2026-06-23
+Last action date: 2026-07-07
+Follow-up due date: 2026-07-21
+Notes / red flags: Reef email 2026-07-07: Jacob passed the basic EvalGround test; only a small share of candidates reach this stage. Next action is the BladeRunner assignment, due within 14 days (by 2026-07-21). Use Hubstaff while working; submit code ZIP to hiring2@reef.pl with subject ""Code Solution - Jacob Shore"". Do not store the assignment password in tracker; use the Reef email for credentials. Still a B2B contract lead with time-tracker friction, but now has real process momentum.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A4:M4",Hacker News Who Is Hiring June 2026
+Hostaway,"Staff Backend Engineer, AI Platform - 100% Remote - EMEA",https://careers.hostaway.com/o/staff-backend-engineer-accounting-remote-emea,,rejected,"[Google Sheets Tracker row 5; reconciled 2026-10-17]
+Company: Hostaway
+Role: Staff Backend Engineer - Accounting
+Type: full-time
+Fit score / fit note: 8.0/10 - Go/backend architecture for auditable financial subsystem; strong regulated/ledger angle
+Location / remote eligibility: 100% remote, must be physically based in EMEA
+Direct apply URL: https://careers.hostaway.com/o/staff-backend-engineer-accounting-remote-emea
+Source: Hostaway careers
+Status: rejected / do not resurface
+Date found: 2026-06-02
+Last action date: 2026-06-02
+Notes / red flags: Email sweep: applied to Staff Backend Engineer, AI Platform - 100% Remote - EMEA; rejection/filled role email Jun 2. Do not resurface Hostaway unless concrete new angle.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A5:M5",Hostaway careers
+Oasis Security,Senior Software Engineer,https://job-boards.greenhouse.io/oasissecurity/jobs/5158795008,,rejected,"[Google Sheets Tracker row 9; reconciled 2026-10-17]
+Company: Oasis Security
+Role: Senior Software Engineer
+Type: full-time
+Fit score / fit note: 8.6/10 - Tel Aviv security/identity platform, distributed components, TS/Python/Go, architecture ownership
+Location / remote eligibility: Tel Aviv, Israel
+Direct apply URL: https://job-boards.greenhouse.io/oasissecurity/jobs/5158795008
+Source: Greenhouse / Oasis Security
+Status: rejected / closed
+Date found: 2026-07-06
+Last action date: 2026-07-09
+Notes / red flags: Rejected via Oasis email on 2026-07-09 for Senior Software Engineer. Email says resume was reviewed and they decided to pursue other candidates. No individualized feedback. Close this role; future Oasis roles may be considered only if materially different or more platform/security-infra aligned.
+Materials: Oasis-specific resume created 2026-07-06 in PDF/DOCX and visually QA'd. Earlier packet folder: https://drive.google.com/drive/folders/13KJLbQlilhxYnH-legCvkyKWtza-JXyX . Basic Greenhouse form: resume/CV and LinkedIn; no real free-text questions visible. Use PDF resume unless form prefers DOCX.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A9:M9",Greenhouse / Oasis Security
+HUMAN Security,Senior Backend Engineer,https://jobs.ashbyhq.com/human/e655c8a4-3415-41a4-9b2e-e06846ee8aca,2026-06-23,rejected,"[Google Sheets Tracker row 11; reconciled 2026-10-17]
+Company: HUMAN Security
+Role: Senior Backend Engineer
+Type: full-time
+Fit score / fit note: 8.0/10 - Tel Aviv hybrid, backend/security company; likely good local geography edge
+Location / remote eligibility: Tel Aviv, Israel - hybrid
+Direct apply URL: https://jobs.ashbyhq.com/human/e655c8a4-3415-41a4-9b2e-e06846ee8aca
+Source: Ashby / HUMAN
+Status: rejected / closed
+Date found: 2026-06-23
+Last action date: 2026-06-24
+Notes / red flags: Applied by Jacob on 2026-06-23 with tailored HUMAN resume. Rejected via Ashby email Jun 24, 2026: moved forward with candidates whose backgrounds more closely align with the Senior Backend Engineer role. No reply needed.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A11:M11",Ashby / HUMAN
+Recorded Future,Senior Platform Engineer (CI/CD & Kubernetes Focus),,,rejected,"[Google Sheets Tracker row 13; reconciled 2026-10-17]
+Company: Recorded Future
+Role: Senior Platform Engineer (CI/CD & Kubernetes Focus)
+Type: full-time
+Fit score / fit note: Strong technical keywords but likely global/competitive; rejected
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: rejected
+Date found: 2026-05-04
+Last action date: 2026-06-18
+Notes / red flags: Application received May 4; rejection Jun 18: moved forward with another candidate.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A13:M13",Gmail sweep
+Lightricks,Software Engineer (Large Scale Training),,,rejected,"[Google Sheets Tracker row 16; reconciled 2026-10-17]
+Company: Lightricks
+Role: Software Engineer (Large Scale Training)
+Type: full-time
+Fit score / fit note: AI/large-scale training; weaker fit unless infra-heavy
+Location / remote eligibility: Israel
+Source: Gmail sweep
+Status: closed / rejected
+Date found: 2026-06-03
+Last action date: 2026-06-09
+Notes / red flags: Security code and application confirmation Jun 3; role closed Jun 9, process stopped.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A16:M16",Gmail sweep
+april,Senior Full-Stack Engineer (IL),,,rejected,"[Google Sheets Tracker row 18; reconciled 2026-10-17]
+Company: april
+Role: Senior Full-Stack Engineer (IL)
+Type: full-time
+Fit score / fit note: Israel-local bridge role; process reached interviews but rejected
+Location / remote eligibility: Israel
+Source: Gmail sweep
+Status: rejected after interviews
+Date found: 2026-02-18
+Last action date: 2026-02-25
+Notes / red flags: Interview reminders Feb 18 and Feb 22; rejection Feb 25 after team meetings, moved forward with another candidate.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A18:M18",Gmail sweep
+LiveKit,Senior Infrastructure Engineer / Infra Engineer,,,rejected,"[Google Sheets Tracker row 19; reconciled 2026-10-17]
+Company: LiveKit
+Role: Senior Infrastructure Engineer / Infra Engineer
+Type: full-time
+Fit score / fit note: Infra role but global remote, rejected
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: rejected
+Date found: 2026-05-04
+Last action date: 2026-05-08
+Notes / red flags: Application received May 4 for Senior Infrastructure Engineer; rejected May 8 for Infra Engineer.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A19:M19",Gmail sweep
+n8n,Senior Solutions Engineer (US),,,rejected,"[Google Sheets Tracker row 20; reconciled 2026-10-17]
+Company: n8n
+Role: Senior Solutions Engineer (US)
+Type: full-time
+Fit score / fit note: Hard skip adjacent: solutions/customer-facing and US-focused
+Location / remote eligibility: US
+Source: Gmail sweep
+Status: rejected / hard-skip similar
+Date found: 2026-05-07
+Last action date: 2026-05-11
+Notes / red flags: Applied May 7; rejected May 11. Do not pursue solutions engineer track unless explicitly desired.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A20:M20",Gmail sweep
+Freightos,DevSecOps,https://www.freightos.com/position/02.B6B/,,phone_screen,"[Google Sheets Tracker row 21; reconciled 2026-10-17]
+Company: Freightos
+Role: DevSecOps
+Type: full-time
+Fit score / fit note: Stretch-pursue - pragmatic bridge role; DevSecOps/SRE tilt but local, senior, security/platform overlap
+Location / remote eligibility: Modi'in, Israel - hybrid twice/week
+Direct apply URL: https://www.freightos.com/position/02.B6B/
+Source: User-provided Freightos posting
+Status: intro / outcome unknown
+Date found: 2026-06-24
+Last action date: 2026-07-05
+Follow-up due date: 2026-07-07
+Notes / red flags: Freightos intro invite from Michael Oberlander for 2026-07-05 12:00-12:25 Israel time. Otter later said notetaker was not admitted, so no transcript captured. Outcome unknown; follow up if no next-step email appears.
+Materials: https://drive.google.com/drive/folders/1qiakX7XryBVHTFgkAO4PkyXvtuyASDwp
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A21:M21",User-provided Freightos posting
+Dream,Senior Backend Engineer - CTI,,,rejected,"[Google Sheets Tracker row 22; reconciled 2026-10-17]
+Company: Dream
+Role: Senior Backend Engineer - CTI
+Type: full-time
+Fit score / fit note: Security/CTI but rejected
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: rejected
+Date found: 2026-05-13
+Last action date: 2026-05-13
+Notes / red flags: Rejection May 13: not strong enough alignment between background and role.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A22:M22",Gmail sweep
+BlinkOps,Senior Platform Engineer (Backend),,,rejected,"[Google Sheets Tracker row 23; reconciled 2026-10-17]
+Company: BlinkOps
+Role: Senior Platform Engineer (Backend)
+Type: full-time
+Fit score / fit note: Israel/security/platform adjacent but rejected
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: rejected
+Date found: 2026-05-06
+Last action date: 2026-05-06
+Notes / red flags: Email says after reviewing experience/qualifications they moved forward with other candidates.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A23:M23",Gmail sweep
+Mobileye,Python Infrastructure Tech Lead / Senior Python Infrastructure Developer,,,rejected,"[Google Sheets Tracker row 24; reconciled 2026-10-17]
+Company: Mobileye
+Role: Python Infrastructure Tech Lead / Senior Python Infrastructure Developer
+Type: full-time
+Fit score / fit note: Local infra/Python, but rejected
+Location / remote eligibility: Israel
+Source: Gmail sweep
+Status: rejected
+Date found: 2026-01-20
+Last action date: 2026-01-26
+Notes / red flags: Application received Jan 20; rejection Jan 26 for Senior Python Infrastructure Developer.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A24:M24",Gmail sweep
+Orca-AI,Senior Backend Engineer,,,applied,"[Google Sheets Tracker row 29; reconciled 2026-10-17]
+Company: Orca-AI
+Role: Senior Backend Engineer
+Type: full-time
+Fit score / fit note: Israel/maritime AI backend; possible local bridge, but no status update found
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: applied / no update found
+Date found: 2026-05-31
+Last action date: 2026-05-31
+Notes / red flags: Application confirmation May 31; no later status found in searched Gmail scope.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A29:M29",Gmail sweep
+Together AI,Unspecified role,,,applied,"[Google Sheets Tracker row 31; reconciled 2026-10-17]
+Company: Together AI
+Role: Unspecified role
+Type: full-time
+Fit score / fit note: AI infra company, likely global/competitive
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: applied / no update found
+Date found: 2026-05-15
+Last action date: 2026-05-15
+Notes / red flags: Application confirmation May 15; no later status found in searched Gmail scope.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A31:M31",Gmail sweep
+ElevenLabs,Forward Deployed Engineer - Software Engineer,,,applied,"[Google Sheets Tracker row 32; reconciled 2026-10-17]
+Company: ElevenLabs
+Role: Forward Deployed Engineer - Software Engineer
+Type: full-time
+Fit score / fit note: Stretch/hard-skip adjacent: forward deployed/customer-facing
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: applied / no update found - stretch
+Date found: 2026-05-08
+Last action date: 2026-05-08
+Notes / red flags: Application confirmation May 8; no later status found. Treat similar forward-deployed roles as stretch only.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A32:M32",Gmail sweep
+Vercel,Solutions Architect,,,applied,"[Google Sheets Tracker row 33; reconciled 2026-10-17]
+Company: Vercel
+Role: Solutions Architect
+Type: full-time
+Fit score / fit note: Hard-skip adjacent: solutions/customer-facing
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: applied / no update found - hard-skip similar
+Date found: 2026-05-08
+Last action date: 2026-05-08
+Notes / red flags: Application confirmation May 8. Do not recommend similar solutions architect roles unless explicitly requested.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A33:M33",Gmail sweep
+Port,Backend Engineer,,,applied,"[Google Sheets Tracker row 34; reconciled 2026-10-17]
+Company: Port
+Role: Backend Engineer
+Type: full-time
+Fit score / fit note: Israeli/internal developer platform; possible fit but role may be below senior target
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: applied / no update found
+Date found: 2026-05-07
+Last action date: 2026-05-07
+Notes / red flags: Application confirmation May 7; no later status found in searched Gmail scope.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A34:M34",Gmail sweep
+LangChain,Solutions Architect,,,applied,"[Google Sheets Tracker row 35; reconciled 2026-10-17]
+Company: LangChain
+Role: Solutions Architect
+Type: full-time
+Fit score / fit note: Hard-skip adjacent: solutions/customer-facing; AI-core adjacent
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: applied / no update found - hard-skip similar
+Date found: 2026-05-07
+Last action date: 2026-05-07
+Notes / red flags: Application confirmation May 7. Do not recommend similar solutions architect roles unless explicitly requested.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A35:M35",Gmail sweep
+Balance,Senior Full stack - Backend Oriented,,,rejected,"[Google Sheets Tracker row 36; reconciled 2026-10-17]
+Company: Balance
+Role: Senior Full stack - Backend Oriented
+Type: full-time
+Fit score / fit note: Fintech/local possible fit, but rejected
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: rejected
+Date found: 2026-05-06
+Last action date: 2026-05-06
+Notes / red flags: Rejection after resume review: moved forward with other candidates.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A36:M36",Gmail sweep
+Anthropic,Application Security Engineer,,,applied,"[Google Sheets Tracker row 37; reconciled 2026-10-17]
+Company: Anthropic
+Role: Application Security Engineer
+Type: full-time
+Fit score / fit note: High-competition global AI/security; stretch
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: applied / no update found - stretch
+Date found: 2026-05-05
+Last action date: 2026-05-05
+Notes / red flags: Application confirmation May 5; no later status found in searched Gmail scope.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A37:M37",Gmail sweep
+Deepgram,ML Ops Infrastructure Engineer,,,applied,"[Google Sheets Tracker row 38; reconciled 2026-10-17]
+Company: Deepgram
+Role: ML Ops Infrastructure Engineer
+Type: full-time
+Fit score / fit note: Infra-ish but AI/global; medium fit at best
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: applied / no update found
+Date found: 2026-05-04
+Last action date: 2026-05-04
+Notes / red flags: Application confirmation May 4; no later status found in searched Gmail scope.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A38:M38",Gmail sweep
+Connecteam,Full Stack Engineer (Senior/Mid),,,interview,"[Google Sheets Tracker row 39; reconciled 2026-10-17]
+Company: Connecteam
+Role: Full Stack Engineer (Senior/Mid)
+Type: full-time
+Fit score / fit note: Israel/local, but older and full-stack/product SaaS
+Location / remote eligibility: Not captured from email sweep
+Source: Gmail sweep
+Status: interviewed / old status unknown
+Date found: 2025-12-01
+Last action date: 2025-12-02
+Notes / red flags: Interview reminder for Dec 2, 2025; no final update found in searched Gmail scope.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A39:M39",Gmail sweep
+DoiT / PerfectScale,Senior Software Engineer - PerfectScale,https://job-boards.greenhouse.io/doitintl/jobs/7544835003,,rejected,"[Google Sheets Tracker row 45; reconciled 2026-10-17]
+Company: DoiT / PerfectScale
+Role: Senior Software Engineer - PerfectScale
+Type: full-time; contractor option only in parts of EMEA
+Fit score / fit note: 9.0/10 - strongest current fit: Go/Kubernetes backend, distributed systems, high-throughput data pipelines, architecture ownership
+Location / remote eligibility: Remote Israel; full-time employee in Israel; contractors only East Europe/Portugal per posting
+Direct apply URL: https://job-boards.greenhouse.io/doitintl/jobs/7544835003
+Source: Greenhouse / DoiT careers
+Status: rejected / closed
+Date found: 2026-06-24
+Last action date: 2026-07-02
+Notes / red flags: Rejected by Greenhouse/DoiT on 2026-07-02 for Senior Software Engineer - PerfectScale: moved forward with candidates whose experience more closely matched the role. Record as fast rejection despite high paper fit; possible gap in exact Go/Kubernetes product expectations or competitive remote pipeline.
+Materials: https://drive.google.com/drive/folders/1TO3gOH7FEAcXPBuS5glhS-nzbTAQFdJh
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A45:M45",Greenhouse / DoiT careers
+Torq,Senior Backend Engineer (Runtime Team),https://job-boards.greenhouse.io/torq/jobs/6002375004,,rejected,"[Google Sheets Tracker row 46; reconciled 2026-10-17]
+Company: Torq
+Role: Senior Backend Engineer (Runtime Team)
+Type: full-time
+Fit score / fit note: 8.8/10 - Tel Aviv security automation runtime, high-scale execution layer, Go advantage, Kubernetes/CI/CD/production ownership
+Location / remote eligibility: Tel Aviv, Israel
+Direct apply URL: https://job-boards.greenhouse.io/torq/jobs/6002375004
+Source: Greenhouse / Torq careers
+Status: rejected / closed
+Date found: 2026-06-23
+Last action date: 2026-06-25
+Notes / red flags: Rejected by Torq email on 2026-06-25: moving forward with candidates whose experience better aligns with the role. Record as fast rejection / possible fit or positioning mismatch; do not resurface this exact role. Packet folder: https://drive.google.com/drive/folders/1qwJw-P0bUTYoFYMZThxJtptA1qMVWSIr.
+Materials: https://drive.google.com/drive/folders/1qwJw-P0bUTYoFYMZThxJtptA1qMVWSIr
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A46:M46",Greenhouse / Torq careers
+Tenable,Staff Software Engineer - Cloud Security,https://job-boards.greenhouse.io/tenableinc/jobs/5171078008,,rejected,"[Google Sheets Tracker row 48; reconciled 2026-10-17]
+Company: Tenable
+Role: Staff Software Engineer - Cloud Security
+Type: full-time
+Fit score / fit note: 8.5/10 - Tel Aviv cybersecurity/cloud security role, distributed systems, cloud, backend languages, production reliability
+Location / remote eligibility: Israel - Office - Tel Aviv
+Direct apply URL: https://job-boards.greenhouse.io/tenableinc/jobs/5171078008
+Source: Greenhouse / Tenable careers
+Status: rejected / closed
+Date found: 2026-06-23
+Last action date: 2026-07-05
+Notes / red flags: Rejected by Tenable on 2026-07-05 after CV review: pursuing candidates whose backgrounds align closer with role requirements. This corresponds to applied Cloud Security role; do not confuse with Tenable OT prospect, which is separate and not applied unless Jacob says so.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A48:M48",Greenhouse / Tenable careers
+HumanSignal,Senior Backend Engineer,https://job-boards.greenhouse.io/humansignal/jobs/4291492004,,applied,"[Google Sheets Tracker row 58; reconciled 2026-10-17]
+Company: HumanSignal
+Role: Senior Backend Engineer
+Type: full-time
+Fit score / fit note: 8.3/10 - clean Python/Django/Postgres/Redis backend/product role; real match to Jacob's Django/API/background-jobs/product ownership experience.
+Location / remote eligibility: Remote; hiring across North/South America and Europe. Israel eligibility needs confirmation.
+Direct apply URL: https://job-boards.greenhouse.io/humansignal/jobs/4291492004
+Source: Greenhouse / HumanSignal
+Status: applied / waiting
+Date found: 2026-06-28
+Last action date: 2026-06-28
+Follow-up due date: 2026-07-08
+Notes / red flags: Application confirmation received 2026-06-28 from Greenhouse/HumanSignal. Await review; if no response by follow-up date, treat as quiet/stale unless recruiter replies.
+Materials: https://drive.google.com/drive/folders/1GFkgNjOESl5PLRTOSPICwoQUG_1zA3zR
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A58:M58",Greenhouse / HumanSignal
+Northflank,Backend Software Engineer,https://northflank.com/careers/2c313796-1f48-416b-947a-d3e36279809e,2026-07-08,applied,"[Google Sheets Tracker row 59; reconciled 2026-10-17]
+Company: Northflank
+Role: Backend Software Engineer
+Type: full-time
+Fit score / fit note: 8.2/10 - developer/cloud platform backend; Python/Node/Go + SQL/NoSQL + microservices + deployment product maps well to Jacob's backend/platform/Kubernetes experience.
+Location / remote eligibility: Europe remote; working hours aligned with UTC +/-2 / overlap requirement appears compatible with Israel.
+Direct apply URL: https://northflank.com/careers/2c313796-1f48-416b-947a-d3e36279809e
+Source: Northflank careers / Ashby
+Status: applied / waiting
+Date found: 2026-06-28
+Last action date: 2026-07-08
+Follow-up due date: 2026-07-18
+Notes / red flags: Jacob applied 2026-07-08 using prepared packet. Follow up / treat stale after ~10 days if no confirmation or response. Confirm Europe/Israel eligibility, UTC +/-2 tolerance, and actual compensation if recruiter replies.
+Materials: Folder: https://drive.google.com/drive/folders/1BGbICshrm2FjkWFV-1QpWA-WTyPV0YT7 | Resume PDF: https://drive.google.com/file/d/1xWC0oYBCZY3FK4KmPLdS4v5mqZT7YvFF/view?usp=drivesdk | Kit PDF: https://drive.google.com/file/d/1OCbx9RxVtAK-yV1OIlpIU5Fx7Uczs6aU/view?usp=drivesdk | Resume DOCX: https://docs.google.com/document/d/1IZhAfBcy-NqwpkGbl6XtIv6U2dkzhKz7/edit?usp=drivesdk&rtpof=true&sd=true | Kit DOCX: https://docs.google.com/document/d/1TNK-JKN1EaQziGjgc2D7XdUADQ2Nmsj9/edit?usp=drivesdk&rtpof=true&sd=true
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A59:M59",Northflank careers / Ashby
+Alice,Senior Software Developer - Malware Research Platform,https://alice.io/positions/position-a5_c6e,,rejected,"[Google Sheets Tracker row 62; reconciled 2026-10-17]
+Company: Alice
+Role: Senior Software Developer - Malware Research Platform
+Type: full-time
+Fit score / fit note: 8.4/10 - recommended. Strong senior Python/internal-tools/security role with technical ownership, team leadership, agentic tooling, Docker/K8s nice-to-have.
+Location / remote eligibility: Ramat Gan, IL
+Direct apply URL: https://alice.io/positions/position-a5_c6e
+Source: Alice careers
+Status: rejected / closed
+Date found: 2026-07-06
+Last action date: 2026-07-09
+Notes / red flags: Rejected via Alice/Comeet email on 2026-07-09 for Senior Software Developer - Malware Research Platform. Email says they reviewed experience/qualifications and moved forward with other candidates. No individualized feedback. Do not treat the AI Software Engineer or freelancer side-channel rows as affected unless separate emails arrive.
+Materials: Materials prepared 2026-07-06: tailored resume PDF/DOCX, cover letter PDF/DOCX, application packet PDF/DOCX. Visual QA passed. Direct form fields were not inspectable from public text; do not invent answers beyond packet drafts.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A62:M62",Alice careers
+Buildots,Senior Backend Engineer,https://buildots.com/careers/,,rejected,"[Google Sheets Tracker row 65; reconciled 2026-10-17]
+Company: Buildots
+Role: Senior Backend Engineer
+Type: full-time
+Fit score / fit note: Rejected from email sweep; fit not scored in tracker before outcome.
+Location / remote eligibility: Israel / work setup unknown
+Direct apply URL: https://buildots.com/careers/
+Source: Comeet / Gmail
+Status: rejected / closed
+Date found: 2026-07-01
+Last action date: 2026-07-01
+Notes / red flags: Rejection email received 2026-07-01 for Senior Backend Engineer: after reviewing experience and qualifications, Buildots moved forward with other candidates. Add as negative feedback signal; not enough evidence to score source quality beyond fast rejection.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A65:M65",Comeet / Gmail
+anecdotes,Senior Backend Engineer (Data Platform),https://www.comeet.com/jobs/anecdotes/F9.00B/senior-backend-engineer-data-platform/AD.866?coref=1.11.p45_8A1B,,rejected,"[Google Sheets Tracker row 66; reconciled 2026-10-17]
+Company: anecdotes
+Role: Senior Backend Engineer (Data Platform)
+Type: full-time
+Fit score / fit note: 7.8/10 - Tel Aviv hybrid senior backend/data-platform role; plausible local backend fit but data-heavy platform focus may be only adjacent
+Location / remote eligibility: Tel Aviv office / hybrid
+Direct apply URL: https://www.comeet.com/jobs/anecdotes/F9.00B/senior-backend-engineer-data-platform/AD.866?coref=1.11.p45_8A1B
+Source: Comeet receipt / web verified
+Status: rejected / closed
+Date found: 2026-07-06
+Last action date: 2026-07-09
+Notes / red flags: Rejected via anecdotes/Comeet email on 2026-07-09 for Senior Backend Engineer (Data Platform). Email says after careful consideration they moved forward with other candidates. No individualized feedback. Close this role.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A66:M66",Comeet receipt / web verified
+Spacelift,Platform Engineer,https://careers.spacelift.io/jobs/6326313-platform-engineer-remote-europe,,rejected,"[Google Sheets Tracker row 67; reconciled 2026-10-17]
+Company: Spacelift
+Role: Platform Engineer
+Type: full-time / B2B contract
+Fit score / fit note: 8.4/10 - strong platform/dev-ex/IaC fit: Go, CI/CD, observability, Ansible/Terraform/OpenTofu, internal developer experience
+Location / remote eligibility: Remote Europe; Israel eligibility not explicit
+Direct apply URL: https://careers.spacelift.io/jobs/6326313-platform-engineer-remote-europe
+Source: HN July 2026 / Spacelift careers
+Status: rejected / closed
+Date found: 2026-07-08
+Last action date: 2026-07-13
+Notes / red flags: Rejected via Spacelift/Teamtailor email on 2026-07-13 for Platform Engineer (remote Europe): strong applicant pool; pursuing a candidate better fit for the role/team. Record as fast rejection from global remote infra/platform funnel; future Spacelift only if materially different or via referral/contract-specific angle.
+Materials: Folder: https://drive.google.com/drive/folders/1BGbICshrm2FjkWFV-1QpWA-WTyPV0YT7 | Resume PDF: https://drive.google.com/file/d/1WcZZ4arUAaHRANQ2HYn8ZzntlZlF1DSr/view?usp=drivesdk | Kit PDF: https://drive.google.com/file/d/1DAXAVl02Aqc44tRoxTxk4SaHRWbtSUaP/view?usp=drivesdk | Resume DOCX: https://docs.google.com/document/d/1vxs-4ErtZaKg5RlwmMGt4zW4bjtUY1H2/edit?usp=drivesdk&rtpof=true&sd=true | Kit DOCX: https://docs.google.com/document/d/1YAEYEFKY84mfrOvIiwJ6_woGu8j1LfkH/edit?usp=drivesdk&rtpof=true&sd=true
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A67:M67",HN July 2026 / Spacelift careers
+Enveritas,Backend Software Engineer - Python/Postgres,https://job-boards.greenhouse.io/enveritas/jobs/4006514008,,rejected,"[Google Sheets Tracker row 68; reconciled 2026-10-17]
+Company: Enveritas
+Role: Backend Software Engineer - Python/Postgres
+Type: full-time
+Fit score / fit note: 8.1/10 - clean Python/PostgreSQL/PostGIS backend in a regulated EUDR/compliance context; strong systems translation and ambiguity fit
+Location / remote eligibility: Global remote; EOR via Deel where supported; core hours 10am-2pm ET
+Direct apply URL: https://job-boards.greenhouse.io/enveritas/jobs/4006514008
+Source: HN July 2026 / Greenhouse
+Status: rejected / closed
+Date found: 2026-07-08
+Last action date: 2026-07-20
+Notes / red flags: Rejected by Enveritas email on 2026-07-20: pursuing other candidates. No individualized feedback. Record as decent paper fit but early rejection in mission-driven/global remote funnel; do not resurface same role unless materially changed.
+Materials: Folder: https://drive.google.com/drive/folders/1BGbICshrm2FjkWFV-1QpWA-WTyPV0YT7 | Resume PDF: https://drive.google.com/file/d/13vJ7tVJeVVSsEsStqI1EI9No_eUlpGsS/view?usp=drivesdk | Kit PDF: https://drive.google.com/file/d/1tRc_UPBwOPDdKgr_PK8M07pS4GRlATAa/view?usp=drivesdk | Resume DOCX: https://docs.google.com/document/d/1oE-Y7FcdUHQ4P8swMoH2KmHsr0qgoBtu/edit?usp=drivesdk&rtpof=true&sd=true | Kit DOCX: https://docs.google.com/document/d/1YcXUZmam3LhgFkCPIJ4RzofImkT5sth8/edit?usp=drivesdk&rtpof=true&sd=true
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A68:M68",HN July 2026 / Greenhouse
+Leidos,DevOps Engineer,https://careers.leidos.com/jobs/17745918-devops-engineer,,applied,"[Google Sheets Tracker row 72; reconciled 2026-10-17]
+Company: Leidos
+Role: DevOps Engineer
+Type: full-time
+Fit score / fit note: 7.4/10 - pragmatic DevOps/platform bridge role: Kubernetes/OpenShift, GitOps, AWS/on-prem, cloud security, CI/CD, mission-critical/defense context; not a clean backend role but viable after DevOps recalibration
+Location / remote eligibility: Jerusalem hybrid per body; listing header says Tel Aviv / No Remote - verify
+Direct apply URL: https://careers.leidos.com/jobs/17745918-devops-engineer
+Source: Leidos careers
+Status: applied / waiting
+Date found: 2026-07-08
+Last action date: 2026-07-08
+Follow-up due date: 2026-07-18
+Notes / red flags: Application receipt confirmed by Leidos/Workday email on 2026-07-08. Talent Acquisition is reviewing and recruiter will reach out if potentially matched. Red flags to verify if they reply: Jerusalem/hybrid vs Tel Aviv/no-remote mismatch, coding/platform-building vs ops load, compensation, clearance eligibility, and Saturday/weekend coverage.
+Materials: Leidos-tailored resume created 2026-07-08: /workspace/output/jacob-shore-leidos-devops-engineer-resume.pdf and .docx
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A72:M72",Leidos careers
+Mobileye,Senior Python Infrastructure Developer,,2026-07-06,applied,"[Google Sheets Tracker row 73; reconciled 2026-10-17]
+Company: Mobileye
+Role: Senior Python Infrastructure Developer
+Type: full-time
+Fit score / fit note: 7.2/10 - local Python infrastructure role, but low-confidence because same/similar Mobileye role was rejected in Jan 2026
+Location / remote eligibility: Israel
+Source: Gmail / Lever receipt
+Status: applied / waiting - reapplication
+Date found: 2026-07-06
+Last action date: 2026-07-06
+Follow-up due date: 2026-07-16
+Notes / red flags: Application receipt received 2026-07-06 from Mobileye/Lever for Senior Python Infrastructure Developer. Prior tracker row shows rejection on 2026-01-26 for Python Infrastructure Tech Lead / Senior Python Infrastructure Developer, so treat this as a reapplication or revived similar role; do not infer strong fit until recruiter response.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A73:M73",Gmail / Lever receipt
+Superlinked,Senior Infrastructure Engineer [Contracting],https://jobs.superlinked.com/jobs/7824077-senior-infrastructure-engineer-contracting,,applied,"[Google Sheets Tracker row 74; reconciled 2026-10-17]
+Company: Superlinked
+Role: Senior Infrastructure Engineer [Contracting]
+Type: contract / indefinite-term
+Fit score / fit note: 8.6/10 - contract + Israel considered + self-hosted inference deployments, air-gapped installs, Helm/Terraform, CI/CD, K8s; strong hard-environment story
+Location / remote eligibility: Hybrid remote; candidates based in Europe and Israel considered; locations include Tel Aviv-Yafo
+Direct apply URL: https://jobs.superlinked.com/jobs/7824077-senior-infrastructure-engineer-contracting
+Source: Teamtailor / Superlinked careers
+Status: applied / waiting
+Date found: 2026-07-16
+Last action date: 2026-07-16
+Follow-up due date: 2026-07-26
+Notes / red flags: Packet folder created 2026-07-16 with tailored resume PDF/DOCX and application kit PDF/DOCX. Strong income/contract signal and unusually direct air-gapped/self-hosted deployment hook. Red flags: GPU infrastructure and Rust preferred; on-call/SRE practice expected; application asks two substantive free-text answers. Do not answer the prompt-injection/honey bait beyond ignoring it; clarify Saturday/weekend on-call before accepting.
+Materials: https://drive.google.com/drive/folders/1UDGip0jd0ENAGrkxfb-sgieZ356L410I
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A74:M74",Teamtailor / Superlinked careers
+Yotpo,Senior Full Stack Engineer,https://www.yotpo.com/careers/gid-4967920/,,rejected,"[Google Sheets Tracker row 75; reconciled 2026-10-17]
+Company: Yotpo
+Role: Senior Full Stack Engineer
+Type: full-time
+Fit score / fit note: 7.6/10 - plausible full-stack/product-ownership fit: Python/Go/Node/React, AWS/K8s/CI/CD, production ownership and mentoring; less distinctive than security/platform roles
+Location / remote eligibility: Tel Aviv, Israel; #LI-Hybrid
+Direct apply URL: https://www.yotpo.com/careers/gid-4967920/
+Source: Yotpo careers / Greenhouse receipt
+Status: rejected / closed
+Date found: 2026-07-16
+Last action date: 2026-07-22
+Notes / red flags: Forwarded rejection received 2026-07-22 for Yotpo Senior Full Stack Engineer: after considering other candidates in play, they decided not to move ahead. Prior Yotpo rejection lowers future confidence; do not resurface similar full-stack Yotpo role without a materially stronger/backend-specific angle.
+Materials: https://drive.google.com/drive/folders/10Qj3yunKuQac7D8ul_sqIc6XrkV-5jpo
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A75:M75",Yotpo careers / Greenhouse receipt
+Reindeer AI / Team8,Software Engineer (Infrastructure),https://team8.vc/career/reindeer-ai/reindeer-software-engineer-infrastructure/,2026-07-21,applied,"[Google Sheets Tracker row 76; reconciled 2026-10-17]
+Company: Reindeer AI / Team8
+Role: Software Engineer (Infrastructure)
+Type: full-time
+Fit score / fit note: 8.3/10 - strong backend/platform infrastructure fit for agentic AI production systems: Python, Kubernetes, CI/CD, secure deployment, data/vector-store adjacency; good local AI-infra bridge without overclaiming ML research
+Location / remote eligibility: Tel Aviv, Israel; Team8 page lists Tel Aviv, Built In marks in-office; hybrid flexibility unclear
+Direct apply URL: https://team8.vc/career/reindeer-ai/reindeer-software-engineer-infrastructure/
+Source: User-provided Team8 role / Built In verification
+Status: applied / waiting
+Date found: 2026-07-21
+Last action date: 2026-07-21
+Follow-up due date: 2026-07-31
+Notes / red flags: Application receipt received 2026-07-21 from Team8/Comeet for Reindeer - Software Engineer (Infrastructure). Email says they will contact if skills match current/future openings. Treat as applied/waiting; follow up or mark stale after 10 days if no recruiter response. Prior status corrected from packet prepared/not applied.
+Materials: Local package created in ChatGPT Agent output/reindeer-ai; exported to user in chat. Use tailored resume PDF plus cover letter if optional.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A76:M76",User-provided Team8 role / Built In verification
+Dream,Research Infra Engineer,https://dreamgroup.com/comeet-positions/research-infra-engineer-3b568,,rejected,"[Google Sheets Tracker row 77; reconciled 2026-10-17]
+Company: Dream
+Role: Research Infra Engineer
+Type: full-time
+Fit score / fit note: 7.3/10 retrospective - relevant research-infrastructure/platform background earned a hiring-manager conversation, but Dream chose candidates with a stronger professional match; likely adjacent rather than clean fit.
+Location / remote eligibility: Tel Aviv, Israel; full-time; remote/hybrid not stated
+Direct apply URL: https://dreamgroup.com/comeet-positions/research-infra-engineer-3b568
+Source: Dream careers / Comeet
+Status: rejected
+Date found: 2026-07-21
+Last action date: 2026-09-03
+Notes / red flags: Rejected by WhatsApp on 2026-09-03 after conversation with hiring manager Ido. Recruiter said Ido was very impressed by Jacob's experience and by him personally, but they are proceeding with candidates viewed as a stronger professional match. On request for candor, recruiter had no role-specific feedback. Classification: decent fit with positive employer engagement, lost early on comparative professional fit before a technical stage; not an automatic or personal rejection. No follow-up needed; do not resurface this posting.
+Materials: ChatGPT Agent packet exported: resume PDF/DOCX and cover letter PDF/DOCX. Drive folder upload pending user approval.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A77:M77",Dream careers / Comeet
+Melio,Senior Data Infra & AI Engineer,,,rejected,"[Google Sheets Tracker row 78; reconciled 2026-10-17]
+Company: Melio
+Role: Senior Data Infra & AI Engineer
+Type: full-time
+Fit score / fit note: Reached phone screen; rejected after hiring manager review. Good signal that lead was live, but mismatch on exact role priorities.
+Location / remote eligibility: Tel Aviv / Israel; exact setup not captured from email
+Source: Gmail / Greenhouse / Xero
+Status: rejected / closed
+Date found: 2026-07-26
+Last action date: 2026-07-28
+Notes / red flags: Phone screen scheduled for 2026-07-27 14:30 IDT with Jenny Lifshits. Rejection received 2026-07-28: after consulting hiring manager, experience not fully aligned with needs/priorities for the role. Record as phone-screen reach, not a weak/dead lead, but calibrate against data/AI-infra specificity.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A78:M78",Gmail / Greenhouse / Xero
+Viz.ai,Senior Platform Engineer,https://jobs.ashbyhq.com/Viz.ai/b91dbb83-7901-4927-909f-514e8c0e23f6,2026-08-25,rejected,"[Google Sheets Tracker row 79; reconciled 2026-10-17]
+Company: Viz.ai
+Role: Senior Platform Engineer
+Type: full-time
+Fit score / fit note: 9.0/10 - clean platform/DevEx fit: Python, AWS, EKS/Kubernetes, CI/CD, distributed systems, self-service tooling, regulated healthcare
+Location / remote eligibility: Tel Aviv, Israel - flexible hybrid; office near HaShalom/Arlozorov
+Direct apply URL: https://jobs.ashbyhq.com/Viz.ai/b91dbb83-7901-4927-909f-514e8c0e23f6
+Source: Ashby / Viz.ai
+Status: rejected / closed
+Date found: 2026-08-25
+Last action date: 2026-09-23
+Notes / red flags: Best apply-now role today. Direct match to platform/backend ownership and healthcare compliance. Red flags: Tel Aviv commute and compensation not posted; no Saturday/weekend coverage stated. Jacob applied on 2026-08-25 using the tailored Viz.ai resume. 2026-09-23: Viz.ai hiring team emailed that it decided not to move forward with the Senior Platform Engineer application after reviewing applications; cited alignment with current needs and encouraged applying to other suitable roles. No interview reported. Email: https://mail.google.com/mail/u/?authuser=jacobshore%40gmail.com#all/1a0cd4a139129428
+Materials: Tailored upload-ready resume PDF prepared 2026-08-25 in ChatGPT Agent output.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A79:M79",Ashby / Viz.ai
+Pi Security,Senior Backend Engineer,https://jobs.ashbyhq.com/pi-security/3392946f-0a09-4ca0-baff-ed4de6071552,2026-08-25,applied,"[Google Sheets Tracker row 80; reconciled 2026-10-17]
+Company: Pi Security
+Role: Senior Backend Engineer
+Type: full-time
+Fit score / fit note: 8.4/10 - security startup with near-exact Python/FastAPI/Kubernetes/PostgreSQL stack; agentic/RAG integration is relevant
+Location / remote eligibility: Tel Aviv, Israel - on-site
+Direct apply URL: https://jobs.ashbyhq.com/pi-security/3392946f-0a09-4ca0-baff-ed4de6071552
+Source: Ashby / Pi Security
+Status: applied / waiting
+Date found: 2026-08-25
+Last action date: 2026-08-25
+Follow-up due date: 2026-09-04
+Notes / red flags: Strong high-upside apply. Red flags: on-site; posting asks proven production LLM/RAG system design; Temporal and Drizzle are gaps. Keep AI claims at integration/shipping level. No Saturday/weekend coverage stated. Jacob applied on 2026-08-25 using the tailored Pi Security resume.
+Materials: Tailored upload-ready resume PDF prepared 2026-08-25 in ChatGPT Agent output.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A80:M80",Ashby / Pi Security
+Fullpath,Senior Backend Engineer,https://www.fullpath.com/careers/co/israel-jerusalem/97.069/senior-backend-engineer/all/#positions,,applied,"[Google Sheets Tracker row 82; reconciled 2026-10-17]
+Company: Fullpath
+Role: Senior Backend Engineer
+Type: full-time
+Fit score / fit note: 7.8/10 - strong practical backend match plus referral and excellent Jerusalem location; 7+ years, SQL, AWS, microservices, ownership, Hebrew/English
+Location / remote eligibility: Jerusalem or Tel Aviv office; remote/hybrid not stated
+Direct apply URL: https://www.fullpath.com/careers/co/israel-jerusalem/97.069/senior-backend-engineer/all/#positions
+Source: Friend referral / Fullpath careers
+Status: applied / waiting
+Date found: 2026-08-25
+Last action date: 2026-08-25
+Follow-up due date: 2026-09-04
+Notes / red flags: Friend handed Jacob's resume to Fullpath. Gmail search on 2026-08-25 found no recent Fullpath, AutoLeadStar, fullpath.com, or Fullpath Comeet correspondence. Red flags: B.Sc in CS listed as a requirement; deep daily AI-tool use emphasized; compensation and work setup not posted. No Saturday/weekend coverage stated.
+Materials: Resume submitted by friend; exact version unknown.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A82:M82",Friend referral / Fullpath careers
+PointFive,Backend Tech Lead,https://jobs.ashbyhq.com/pointfive/f3e101d7-7ce7-4280-8eb4-f6ccde097472/,2026-08-30,applied,"[Google Sheets Tracker row 83; reconciled 2026-10-17]
+Company: PointFive
+Role: Backend Tech Lead
+Type: full-time
+Fit score / fit note: 8.6/10 - hands-on tech lead with 8+ years; Python/Go, AWS, Kubernetes/Docker, Postgres, architecture ownership and shipped AI workflows map directly
+Location / remote eligibility: Tel Aviv, Israel - hybrid
+Direct apply URL: https://jobs.ashbyhq.com/pointfive/f3e101d7-7ce7-4280-8eb4-f6ccde097472/
+Source: Ashby / PointFive
+Status: applied / waiting
+Date found: 2026-08-30
+Last action date: 2026-08-30
+Follow-up due date: 2026-09-09
+Notes / red flags: Jacob applied 2026-08-30 using the tailored PointFive resume. Red flags: large-scale cloud data/warehouse depth and Snowflake are not proven strengths; compensation and exact hybrid cadence not posted; no Saturday/weekend coverage stated.
+Materials: Tailored upload-ready PDF resume prepared 2026-08-30 in ChatGPT Agent output.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A83:M83",Ashby / PointFive
+Glow,Senior Back End Engineer,https://jobs.ashbyhq.com/glow/3dc1f037-da92-4061-8a31-0a8eca5d9624?embed=js,2026-08-30,applied,"[Google Sheets Tracker row 84; reconciled 2026-10-17]
+Company: Glow
+Role: Senior Back End Engineer
+Type: full-time
+Fit score / fit note: 8.2/10 - unusually exact security/backend stack match: Python, Go, AWS, Kubernetes, Postgres, end-to-end delivery and production reliability
+Location / remote eligibility: Tel Aviv, Israel - on-site
+Direct apply URL: https://jobs.ashbyhq.com/glow/3dc1f037-da92-4061-8a31-0a8eca5d9624?embed=js
+Source: Ashby / Glow
+Status: applied / waiting
+Date found: 2026-08-30
+Last action date: 2026-08-30
+Follow-up due date: 2026-09-09
+Notes / red flags: Jacob applied 2026-08-30 using the tailored Glow resume. Red flags: on-site; CS/software-engineering bachelor's degree listed; ClickHouse gap. No Saturday/weekend coverage stated.
+Materials: Tailored upload-ready PDF resume prepared 2026-08-30 in ChatGPT Agent output.
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A84:M84",Ashby / Glow
+High Lander,Tech Lead Software Engineering,https://www.highlander.io/tech-lead-software-engineer,2026-09-03,applied,"[Google Sheets Tracker row 86; reconciled 2026-10-17]
+Company: High Lander
+Role: Tech Lead Software Engineering
+Type: full-time
+Fit score / fit note: 8.9/10 - unusually direct match: hands-on tech lead, distributed systems, architecture, Kubernetes/CI/CD, production ownership, AI-assisted engineering
+Location / remote eligibility: Tel Aviv, hybrid; Israel eligible. Hybrid cadence not stated and commute from Beit Shemesh is a practical downside.
+Direct apply URL: https://www.highlander.io/tech-lead-software-engineer
+Source: Referring WhatsApp group via Saul Gold (High Lander Director of Sales)
+Status: applied
+Date found: 2026-09-03
+Last action date: 2026-09-03
+Follow-up due date: 2026-09-10
+Notes / red flags: PURSUE via referrer. No language-specific stack requirement. Strong domain overlap with safety-critical, government/authority-facing, distributed and regulated systems. Referral is specific and internal. Clarify office-days expectation and compensation early; company is ~48 employees / initial-revenue stage, so assess runway and role authority. 2026-09-03: Jacob sent the tailored CV to Saul Gold via WhatsApp. No HR handoff or receipt is confirmed. Self-eval: this is a genuinely role-specific, direct-link lead, not a generic adjacent backend opening.
+Materials: Tailored DOCX and PDF resume prepared; required 'Why join High Lander?' answer and referrer message drafted 2026-09-03
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A86:M86",Referring WhatsApp group via Saul Gold (High Lander Director of Sales)
+Ovalix,Senior Backend Engineer,https://www.ovalix.ai/careers/senior-backend-engineer,2026-09-16,applied,"[Google Sheets Tracker row 87; reconciled 2026-10-17]
+Company: Ovalix
+Role: Senior Backend Engineer
+Type: full-time
+Fit score / fit note: 9.0/10 - Python, AWS, Kubernetes, backend ownership, AI-security and security-domain fit
+Location / remote eligibility: Hybrid, Tel Aviv/Giv'atayim; Israel eligibility explicit
+Direct apply URL: https://www.ovalix.ai/careers/senior-backend-engineer
+Source: Ovalix careers / direct form
+Status: applied
+Date found: 2026-09-16
+Last action date: 2026-09-16
+Notes / red flags: Applied by Jacob on 2026-09-16. Hybrid cadence and compensation not stated; no weekend/on-call language found.
+Materials: Resume tailored through The Resume Tailor
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A87:M87",Ovalix careers / direct form
+MIND,Senior Backend Engineer,https://mind.io/careers/9C.65C,2026-09-16,applied,"[Google Sheets Tracker row 88; reconciled 2026-10-17]
+Company: MIND
+Role: Senior Backend Engineer
+Type: full-time
+Fit score / fit note: 8.2/10 - Go, Kubernetes, CI/CD, distributed backend systems, technical leadership, security
+Location / remote eligibility: Tel Aviv, Israel; on-site
+Direct apply URL: https://mind.io/careers/9C.65C
+Source: MIND careers / direct Comeet form
+Status: applied
+Date found: 2026-09-16
+Last action date: 2026-09-16
+Notes / red flags: Applied by Jacob on 2026-09-16. Red flag: explicitly on-site Tel Aviv. No compensation or weekend/on-call language stated.
+Materials: Resume tailored through The Resume Tailor
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A88:M88",MIND careers / direct Comeet form
+BFTF,"Software Engineer, Applied AI",,,interview,"[Google Sheets Tracker row 89; reconciled 2026-10-17]
+Company: BFTF
+Role: Software Engineer, Applied AI
+Source: Gmail thread 1a11ba7a15ab337f
+Status: interviewed / awaiting response
+Last action date: 2026-10-12
+Notes / red flags: Current status: culture-fit interview with Dana Gibber completed; awaiting response. On 2026-10-15 Jacob confirmed that he met with Dana and has not heard back. No interview outcome or hiring decision has been reported. Appointment was scheduled for 2026-10-12, 5:30–6:00 PM Israel time (Asia/Jerusalem), confirmed by Dana's invitation and Google Calendar. Scheduling history: originally selected October 12, 4:30–5:00 PM Israel / 9:30 AM ET; Jacob followed up when no invite arrived. On October 12 Dana proposed 10:30 AM Eastern (worded 'EST' in email); Jacob accepted and Dana sent the invitation for 5:30–6:00 PM Israel, superseding the original slot. Invitation: https://mail.google.com/mail/u/?authuser=jacobshore%40gmail.com#all/1a130668262636d9
+
+Prior notes (historical; awaiting-scheduling statements superseded by the confirmation above): General interview completed; technical interview completed; advanced beyond both stages. Current stage: short culture-fit interview with board member Dana Gibber, awaiting scheduling. 2026-10-08: Joy Neuberger confirmed advancement. Jacob replied at 13:32 UTC, thanked Joy, introduced himself to Dana, and requested proposed times and her time zone. Next scheduling response is Dana's; awaiting her reply. Interview date/time is not yet confirmed. Prior-stage completion confirmed by Jacob on 2026-10-08. Source: https://mail.google.com/mail/u/0/#all/1a11ba7a15ab337f
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A89:M89",Gmail thread 1a11ba7a15ab337f
+CHEQ,AI Engineer,,,applied,"[Google Sheets Tracker row 90; reconciled 2026-10-17]
+Company: CHEQ
+Role: AI Engineer
+Source: Gmail message 1a118819f1a96b7d
+Status: applied / waiting
+Last action date: 2026-10-07
+Notes / red flags: 2026-10-07: CHEQ acknowledged receipt of the AI Engineer application. Receipt is confirmed; no interview or advancement is confirmed by this acknowledgment. Original submission date and follow-up deadline are not established. Source: https://mail.google.com/mail/u/0/#all/1a118819f1a96b7d
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A90:M90",Gmail message 1a118819f1a96b7d
+MONTICELLOAM,AI Engineer,,,rejected,"[Google Sheets Tracker row 91; reconciled 2026-10-17]
+Company: MONTICELLOAM
+Role: AI Engineer
+Source: Gmail message 1a11880ccd59d8da
+Status: rejected / closed
+Last action date: 2026-10-12
+Notes / red flags: 2026-10-07: Application receipt acknowledged. 2026-10-12: MONTICELLOAM declined the AI Engineer application; resume retained for future opportunities. No reply or follow-up required. Source: https://mail.google.com/mail/u/?authuser=jacobshore%40gmail.com#all/1a1306a912398bad
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A91:M91",Gmail message 1a11880ccd59d8da
+NewCore,Senior Backend Engineer,,,interview,"[Google Sheets Tracker row 92; reconciled 2026-10-17]
+Company: NewCore
+Role: Senior Backend Engineer
+Type: full-time
+Location / remote eligibility: Tel Aviv, Israel; one work-from-home day/week
+Source: Recruiter / Comeet
+Status: interview scheduled
+Date found: 2026-10-07
+Last action date: 2026-10-14
+Follow-up due date: 2026-10-18
+Notes / red flags: Current confirmed appointment: phone interview with Amit Ronen, Sunday 2026-10-18, 11:00–11:30 AM Israel time (Asia/Jerusalem / IDT). Newcore Recruiting confirmed on 2026-10-14; Google Calendar independently confirms the 30-minute appointment. NewCore will call Jacob. Confirmation: https://mail.google.com/mail/u/?authuser=jacobshore%40gmail.com#all/1a139c2640ede9a4. The October 13 slot is historical and is no longer the upcoming appointment; its attendance/outcome is unverified.
+
+Prior scheduling note (preserved as history): Phone screen with Inbal Drori confirmed for Tuesday, 2026-10-13 at 10:30 AM Israel time. NewCore will call Jacob. Scheduling confirmation: https://mail.google.com/mail/u/?authuser=jacobshore%40gmail.com#all/1a12a40f6e2337b5
+Source row: https://docs.google.com/spreadsheets/d/1IGhA6JRgCpY08s12k1XgMAlPxyFr7owaFQ5SerX-iFQ/edit#gid=997428215&range=A92:M92",Recruiter / Comeet
